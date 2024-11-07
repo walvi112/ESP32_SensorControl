@@ -1,0 +1,26 @@
+{
+    "C_Cpp.intelliSenseEngine": "default",
+    "idf.adapterTargetName": "esp32",
+    "idf.customExtraPaths": "/home/vinhdq/.espressif/tools/xtensa-esp-elf-gdb/14.2_20240403/xtensa-esp-elf-gdb/bin:/home/vinhdq/.espressif/tools/riscv32-esp-elf-gdb/14.2_20240403/riscv32-esp-elf-gdb/bin:/home/vinhdq/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20240530/xtensa-esp-elf/bin:/home/vinhdq/.espressif/tools/riscv32-esp-elf/esp-13.2.0_20240530/riscv32-esp-elf/bin:/home/vinhdq/.espressif/tools/esp32ulp-elf/2.38_20240113/esp32ulp-elf/bin:/home/vinhdq/.espressif/tools/cmake/3.24.0/bin:/home/vinhdq/.espressif/tools/openocd-esp32/v0.12.0-esp32-20240318/openocd-esp32/bin:/home/vinhdq/.espressif/tools/ninja/1.11.1:/home/vinhdq/.espressif/tools/esp-rom-elfs/20240305",
+    "idf.customExtraVars": {
+        "OPENOCD_SCRIPTS": "/home/vinhdq/.espressif/tools/openocd-esp32/v0.12.0-esp32-20240318/openocd-esp32/share/openocd/scripts",
+        "ESP_ROM_ELF_DIR": "/home/vinhdq/.espressif/tools/esp-rom-elfs/20240305/"
+    },
+    "idf.espIdfPath": "/home/vinhdq/esp/esp-idf-v5.3.1",
+    "idf.openOcdConfigs": [
+        "board/esp32-wrover-kit-3.3v.cfg"
+    ],
+    "idf.port": "/dev/ttyUSB0",
+    "idf.pythonBinPath": "/home/vinhdq/.espressif/python_env/idf5.3_py3.8_env/bin/python",
+    "idf.toolsPath": "/home/vinhdq/.espressif",
+    "idf.flashType": "UART",
+    "files.associations": {
+        "param.h": "c",
+        "esp_lcd_panel_io.h": "c",
+        "esp_lcd_panel_ops.h": "c",
+        "esp_lcd_panel_vendor.h": "c",
+        "spi_master.h": "c",
+        "sensorcontroldevice.h": "c"
+    },
+    "idf.gitPath": "git"
+}
