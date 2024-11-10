@@ -7,8 +7,8 @@ static void screen3_init(void);
 
 static void imu_create(lv_obj_t *parent);
 static void temperature_create(lv_obj_t *parent);
-static void calendar_create(lv_obj_t *parent);
-static void time_set_create(lv_obj_t *parent);
+static lv_obj_t *calendar_create(lv_obj_t *parent);
+static lv_obj_t *time_set_create(lv_obj_t *parent);
 
 static void window_delete_event_cb(lv_event_t *e);
 static void remove_padding(lv_obj_t *obj);
@@ -153,21 +153,34 @@ static void screen3_init(void)
 {
     screen3 = lv_obj_create(NULL);
     lv_obj_set_style_bg_image_src(screen3, &img_background, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_t *menu = lv_menu_create(screen3);
-    
+
     lv_obj_t *cont;
-    lv_obj_t *section;
     lv_obj_t *label;
+    lv_obj_t *section;
+
+    lv_obj_t *menu = lv_menu_create(screen3);
+    lv_obj_set_style_bg_opa(menu, LV_OPA_TRANSP , 0);
+    
+    lv_menu_set_mode_root_back_button(menu, LV_MENU_ROOT_BACK_BUTTON_ENABLED);
+    // lv_obj_add_event_cb(menu, back_event_handler, LV_EVENT_CLICKED, menu);
+    lv_obj_set_size(menu, lv_display_get_horizontal_resolution(NULL), lv_display_get_vertical_resolution(NULL));
+    lv_obj_center(menu);
 
     lv_obj_t *set_date_page = lv_menu_page_create(menu, NULL);
+    lv_obj_set_style_pad_hor(set_date_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
+    lv_menu_separator_create(set_date_page);
     section = lv_menu_section_create(set_date_page);
     calendar_create(section);
 
     lv_obj_t *set_time_page = lv_menu_page_create(menu, NULL);
+    lv_obj_set_style_pad_hor(set_time_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
+    lv_menu_separator_create(set_time_page);
     section = lv_menu_section_create(set_time_page);
     time_set_create(section);
 
     menu_root_page = lv_menu_page_create(menu, "Settings");
+    lv_obj_set_style_pad_hor(menu_root_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
+
     cont = lv_menu_cont_create(menu_root_page);
     label = lv_label_create(cont);
     lv_label_set_text(label, "Set date");
@@ -178,33 +191,36 @@ static void screen3_init(void)
     lv_label_set_text(label, "Set time");
     lv_menu_set_load_page_event(menu, cont, set_time_page);
 
-    lv_menu_set_page(menu, menu_root_page);
+    lv_menu_set_sidebar_page(menu, menu_root_page);
+    lv_obj_send_event(lv_obj_get_child(lv_obj_get_child(lv_menu_get_cur_sidebar_page(menu), 0), 0), LV_EVENT_CLICKED,
+                      NULL);
 }   
 
-static void time_set_create(lv_obj_t *parent)
-{
-    lv_obj_set_layout(parent, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(parent, LV_FLEX_FLOW_ROW_WRAP);
-    lv_obj_set_flex_align(parent, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_t *hour_roller = lv_roller_create(parent);
-    lv_roller_set_options(hour_roller,  "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23", LV_ROLLER_MODE_INFINITE);
-    lv_obj_t *label = lv_label_create(parent);
-    lv_label_set_text(label, ":");
-    lv_obj_t *min_roller = lv_roller_create(parent);
-    lv_roller_set_options(min_roller,  "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59", LV_ROLLER_MODE_INFINITE);
 
+static lv_obj_t *time_set_create(lv_obj_t *parent)
+{
+    lv_obj_t *obj = lv_menu_cont_create(parent);
+    // lv_obj_set_layout(obj, LV_LAYOUT_FLEX);
+    // lv_obj_set_flex_flow(obj, LV_FLEX_FLOW_ROW_WRAP);
+    // lv_obj_set_flex_align(obj, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_t *hour_roller = lv_roller_create(obj);
+    lv_roller_set_options(hour_roller,  "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23", LV_ROLLER_MODE_INFINITE);
+    lv_obj_t *label = lv_label_create(obj);
+    lv_label_set_text(label, ":");
+    lv_obj_t *min_roller = lv_roller_create(obj);
+    lv_roller_set_options(min_roller,  "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59", LV_ROLLER_MODE_INFINITE);
+    return obj;
 }
 
-static void calendar_create(lv_obj_t *parent)
+static lv_obj_t *calendar_create(lv_obj_t *parent)
 {
-    lv_obj_t  * calendar = lv_calendar_create(parent);
+    lv_obj_t *obj = lv_menu_cont_create(parent);
+    lv_obj_t  *calendar = lv_calendar_create(obj);
     lv_obj_set_size(calendar, 185, 230);
     lv_obj_align(calendar, LV_ALIGN_CENTER, 0, 27);
     lv_calendar_set_today_date(calendar, 2021, 02, 23);
     lv_calendar_set_showed_date(calendar, 2021, 02);
-    // lv_obj_add_event_cb(calendar, event_handler, LV_EVENT_VALUE_CHANGED, NULL);
-
-
+    return obj;
 }
 
 static void imu_create(lv_obj_t *parent)

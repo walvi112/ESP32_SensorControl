@@ -19,6 +19,7 @@ extern "C" {
 #define PIN_NUM_LCD_DC         5
 #define PIN_NUM_LCD_RST        21
 #define PIN_NUM_LCD_CS         4
+#define PIN_NUM_TOUCH_CS       15 
 #define PIN_NUM_BK_LIGHT       2
 
 #define LCD_H_RES              240

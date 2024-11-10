@@ -12,6 +12,7 @@
 #include "esp_log.h"
 #include "lvgl.h"
 #include "esp_lcd_ili9341.h"
+#include "esp_lcd_touch_xpt2046.h"
 #include "sensorControlUI.h"
 #include "sensorControlDevice.h"
 
@@ -24,8 +25,10 @@ static void increase_lvgl_tick(void *arg);
 static bool lvgl_lock(int timeout_ms);
 static void lvgl_unlock();
 static void lvgl_port_task(void *arg);
+static void lvgl_touch_cb(lv_indev_t * indev_drv, lv_indev_data_t * data);
 
 static SemaphoreHandle_t lvgl_mux = NULL;
+
 
 void app_main(void)
 {
@@ -114,6 +117,26 @@ void app_main(void)
     };
     ESP_ERROR_CHECK(esp_lcd_panel_io_register_event_callbacks(io_handle, &cbs, display));
 
+    ESP_LOGI(TAG, "Install XPT2046 touch driver");
+    esp_lcd_panel_io_handle_t tp_io_handle = NULL;
+    esp_lcd_panel_io_spi_config_t tp_io_config = ESP_LCD_TOUCH_IO_SPI_XPT2046_CONFIG(PIN_NUM_TOUCH_CS);
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &tp_io_config, &tp_io_handle));
+
+    esp_lcd_touch_config_t tp_cfg = {
+        .x_max = LCD_H_RES,
+        .y_max = LCD_V_RES,
+        .rst_gpio_num = -1,
+        .int_gpio_num = -1,
+        .flags = {
+            .swap_xy = 0,
+            .mirror_x = 0,
+            .mirror_y = 0,
+        },
+    };
+    esp_lcd_touch_handle_t tp = NULL;
+    ESP_LOGI(TAG, "Initialize touch controller XPT2046");
+    ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &tp));
+
     lvgl_mux = xSemaphoreCreateRecursiveMutex();
     assert(lvgl_mux);
     ESP_LOGI(TAG, "Create LVGL task");
@@ -126,10 +149,16 @@ void app_main(void)
     lv_indev_set_read_cb(keypad, lvgl_keypad_read);
     lv_indev_set_group(keypad, lv_group_get_default());
 
+    ESP_LOGI(TAG, "Init TouchScreen");
+    lv_indev_t *touch_screen = lv_indev_create(); 
+    lv_indev_set_type(touch_screen, LV_INDEV_TYPE_POINTER); 
+    lv_indev_set_display(touch_screen, display);
+    lv_indev_set_user_data(touch_screen, tp);
+    lv_indev_set_read_cb(touch_screen, lvgl_touch_cb);
+
     ESP_LOGI(TAG, "Display Sensor Control");
     if (lvgl_lock(-1)) {
         sensorControl();
-        // lv_demo_widgets();
         lvgl_unlock();
     }
 }
@@ -214,4 +243,23 @@ static void lvgl_port_task(void *arg)
     }
 }
 
+void lvgl_touch_cb(lv_indev_t * indev_drv, lv_indev_data_t * data)
+{
+    uint16_t touchpad_x[1] = {0};
+    uint16_t touchpad_y[1] = {0};
+    uint8_t touchpad_cnt = 0;
 
+    esp_lcd_touch_handle_t touch_pad = lv_indev_get_user_data(indev_drv);
+    ESP_ERROR_CHECK(esp_lcd_touch_read_data(touch_pad));
+
+    /* Get coordinates */
+    bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_pad, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
+
+    if (touchpad_pressed && touchpad_cnt > 0) {
+        data->point.x = touchpad_x[0];
+        data->point.y = touchpad_y[0];
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else {
+        data->state = LV_INDEV_STATE_RELEASED;
+    }
+}

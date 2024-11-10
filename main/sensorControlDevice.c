@@ -2,6 +2,8 @@
 #include "driver/gpio.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_lcd_touch_xpt2046.h"
+
 extern const char *TAG;
 static uint32_t lvgl_keypad_get_key(void);
 
@@ -73,3 +75,5 @@ void lvgl_keypad_read(lv_indev_t * indev, lv_indev_data_t * data)
 
     data->key = last_key;
 }
+
+
