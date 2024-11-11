@@ -49,12 +49,12 @@ void lvgl_keypad_read(lv_indev_t * indev, lv_indev_data_t * data)
         /*Translate the keys to LVGL control characters according to your key definitions*/
         switch(act_key) {
             case 1:
-                // act_key = LV_KEY_UP;
-                act_key = LV_KEY_PREV;
+                act_key = LV_KEY_UP;
+                // act_key = LV_KEY_PREV;
                 break;
             case 2:
-                // act_key = LV_KEY_DOWN;
-                act_key = LV_KEY_NEXT;
+                act_key = LV_KEY_DOWN;
+                // act_key = LV_KEY_NEXT;
                 break;
             case 3:
                 act_key = LV_KEY_LEFT;
