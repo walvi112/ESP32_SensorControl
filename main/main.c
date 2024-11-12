@@ -28,7 +28,7 @@ static void lvgl_port_task(void *arg);
 static void lvgl_touch_cb(lv_indev_t * indev_drv, lv_indev_data_t * data);
 
 static SemaphoreHandle_t lvgl_mux = NULL;
-
+lv_group_t* indev_group;
 
 void app_main(void)
 {
@@ -86,7 +86,7 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init();
-    lv_group_set_default(lv_group_create());
+
     lv_display_t *display = lv_display_create(LCD_H_RES, LCD_V_RES);
     lv_display_set_rotation(display, LV_DISPLAY_ROTATION_90);
     size_t draw_buffer_sz = LCD_H_RES * LVGL_DRAW_BUF_LINES * sizeof(lv_color16_t);
@@ -137,30 +137,33 @@ void app_main(void)
     ESP_LOGI(TAG, "Initialize touch controller XPT2046");
     ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &tp));
 
+    indev_group = lv_group_create();
+    ESP_LOGI(TAG, "Init KeyPad");
+    lvgl_keypad_init();
+    lv_indev_t *keypad = lv_indev_create(); 
+    lv_indev_set_display(keypad, display);
+    lv_indev_set_type(keypad, LV_INDEV_TYPE_KEYPAD); 
+    lv_indev_set_read_cb(keypad, lvgl_keypad_read);
+    lv_indev_set_group(keypad, indev_group);
+
+    ESP_LOGI(TAG, "Init TouchScreen");
+    lv_indev_t *touch_screen = lv_indev_create(); 
+    lv_indev_set_display(touch_screen, display);
+    lv_indev_set_type(touch_screen, LV_INDEV_TYPE_POINTER); 
+    lv_indev_set_user_data(touch_screen, tp);
+    lv_indev_set_read_cb(touch_screen, lvgl_touch_cb);
+
     lvgl_mux = xSemaphoreCreateRecursiveMutex();
     assert(lvgl_mux);
     ESP_LOGI(TAG, "Create LVGL task");
     xTaskCreate(lvgl_port_task, "LVGL", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
-
-    ESP_LOGI(TAG, "Init KeyPad");
-    lvgl_keypad_init();
-    lv_indev_t *keypad = lv_indev_create(); 
-    lv_indev_set_type(keypad, LV_INDEV_TYPE_KEYPAD); 
-    lv_indev_set_read_cb(keypad, lvgl_keypad_read);
-    lv_indev_set_group(keypad, lv_group_get_default());
-
-    ESP_LOGI(TAG, "Init TouchScreen");
-    lv_indev_t *touch_screen = lv_indev_create(); 
-    lv_indev_set_type(touch_screen, LV_INDEV_TYPE_POINTER); 
-    lv_indev_set_display(touch_screen, display);
-    lv_indev_set_user_data(touch_screen, tp);
-    lv_indev_set_read_cb(touch_screen, lvgl_touch_cb);
 
     ESP_LOGI(TAG, "Display Sensor Control");
     if (lvgl_lock(-1)) {
         sensorControl();
         lvgl_unlock();
     }
+
 }
 
 static bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx)

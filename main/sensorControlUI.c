@@ -16,6 +16,7 @@ static lv_obj_t *time_set_create(lv_obj_t *parent);
 
 static void window_delete_event_cb(lv_event_t *e);
 static void remove_padding(lv_obj_t *obj);
+static void group_change_obj(lv_obj_t *current_obj, lv_obj_t *new_obj);
 
 static const lv_font_t *font_large;
 static const lv_font_t *font_normal;
@@ -34,7 +35,7 @@ static lv_obj_t *screen2;
 static lv_obj_t *screen3;
 
 static lv_obj_t *menu_root_page;
-
+extern lv_group_t *indev_group;
 extern const char *TAG;
 
 void sensorControl(void)
@@ -87,6 +88,8 @@ void sensorControl(void)
     screen2_init();
     screen3_init();
 
+
+    lv_group_add_obj(indev_group, screen2);
     lv_screen_load(screen2);
 }
 
@@ -345,15 +348,28 @@ static void window_delete_event_cb(lv_event_t *e)
     }
 }
 
+static void group_change_obj(lv_obj_t *current_obj, lv_obj_t *new_obj)
+{
+    lv_group_add_obj(lv_obj_get_group(current_obj), new_obj);
+    lv_group_remove_obj(current_obj);
+}
+
 static void screen1_event(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
+
     if (event_code == LV_EVENT_KEY)
-    {
-        switch(lv_event_get_key(lv_indev_active()))
-        {
+    {   
+        ESP_LOGI(TAG, "key pressed");
+        switch(lv_event_get_key(e))
+        {   
+            case LV_KEY_UP:
+                group_change_obj(screen1, screen2);
+                lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
+                break;
             case LV_KEY_DOWN:
-                lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 100, 0, false);
+                group_change_obj(screen1, screen2);
+                lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_TOP, LVGL_ANIM_DELAY, 0, false);
                 break;
         }
     }
@@ -364,10 +380,20 @@ static void screen2_event(lv_event_t *e)
     lv_event_code_t event_code = lv_event_get_code(e);
     if (event_code == LV_EVENT_KEY)
     {
-        switch(lv_indev_get_key(lv_indev_active()))
+        ESP_LOGI(TAG, "key pressed");
+        switch(lv_event_get_key(e))
         {
             case LV_KEY_UP:
-                lv_screen_load_anim(screen1, LV_SCR_LOAD_ANIM_MOVE_TOP, 100, 0, false);
+                group_change_obj(screen2, screen1);
+                lv_screen_load_anim(screen1, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
+                break;
+            case LV_KEY_DOWN:
+                group_change_obj(screen2, screen1);
+                lv_screen_load_anim(screen1, LV_SCR_LOAD_ANIM_MOVE_TOP, LVGL_ANIM_DELAY, 0, false);
+                break;
+            case LV_KEY_ENTER:
+                group_change_obj(screen2, screen3);
+                lv_screen_load(screen3);
                 break;
         }
     }

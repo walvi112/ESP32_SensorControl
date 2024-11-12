@@ -50,7 +50,6 @@ void lvgl_keypad_read(lv_indev_t * indev, lv_indev_data_t * data)
         switch(act_key) {
             case 1:
                 act_key = LV_KEY_UP;
-                // act_key = LV_KEY_PREV;
                 break;
             case 2:
                 act_key = LV_KEY_DOWN;
@@ -58,9 +57,11 @@ void lvgl_keypad_read(lv_indev_t * indev, lv_indev_data_t * data)
                 break;
             case 3:
                 act_key = LV_KEY_LEFT;
+                // act_key = LV_KEY_PREV;
                 break;
             case 4:
                 act_key = LV_KEY_RIGHT;
+                // act_key = LV_KEY_NEXT;
                 break;
             case 5:
                 act_key = LV_KEY_ENTER;

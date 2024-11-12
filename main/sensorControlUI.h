@@ -35,6 +35,8 @@ extern "C" {
 #define LVGL_TASK_STACK_SIZE   (8 * 1024)
 #define LVGL_TASK_PRIORITY     2
 
+#define LVGL_ANIM_DELAY        200
+
 void sensorControl(void);
 
 
