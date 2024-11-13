@@ -28,7 +28,6 @@ static void lvgl_port_task(void *arg);
 static void lvgl_touch_cb(lv_indev_t * indev_drv, lv_indev_data_t * data);
 
 static SemaphoreHandle_t lvgl_mux = NULL;
-lv_group_t* indev_group;
 
 void app_main(void)
 {
@@ -137,17 +136,15 @@ void app_main(void)
     ESP_LOGI(TAG, "Initialize touch controller XPT2046");
     ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &tp));
 
-    indev_group = lv_group_create();
     ESP_LOGI(TAG, "Init KeyPad");
     lvgl_keypad_init();
-    lv_indev_t *keypad = lv_indev_create(); 
+    keypad = lv_indev_create(); 
     lv_indev_set_display(keypad, display);
     lv_indev_set_type(keypad, LV_INDEV_TYPE_KEYPAD); 
     lv_indev_set_read_cb(keypad, lvgl_keypad_read);
-    lv_indev_set_group(keypad, indev_group);
 
     ESP_LOGI(TAG, "Init TouchScreen");
-    lv_indev_t *touch_screen = lv_indev_create(); 
+    touch_screen = lv_indev_create(); 
     lv_indev_set_display(touch_screen, display);
     lv_indev_set_type(touch_screen, LV_INDEV_TYPE_POINTER); 
     lv_indev_set_user_data(touch_screen, tp);

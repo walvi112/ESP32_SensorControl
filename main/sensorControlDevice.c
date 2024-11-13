@@ -7,7 +7,8 @@
 extern const char *TAG;
 static uint32_t lvgl_keypad_get_key(void);
 
-
+lv_indev_t *keypad = NULL;
+lv_indev_t *touch_screen = NULL;
 
 void lvgl_keypad_init(void)
 {
@@ -53,15 +54,12 @@ void lvgl_keypad_read(lv_indev_t * indev, lv_indev_data_t * data)
                 break;
             case 2:
                 act_key = LV_KEY_DOWN;
-                // act_key = LV_KEY_NEXT;
                 break;
             case 3:
-                act_key = LV_KEY_LEFT;
-                // act_key = LV_KEY_PREV;
+                act_key = LV_KEY_PREV;
                 break;
             case 4:
-                act_key = LV_KEY_RIGHT;
-                // act_key = LV_KEY_NEXT;
+                act_key = LV_KEY_NEXT;
                 break;
             case 5:
                 act_key = LV_KEY_ENTER;

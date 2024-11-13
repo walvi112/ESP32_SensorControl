@@ -14,6 +14,9 @@ extern "C" {
 #define PIN_PAD_ENTER   GPIO_NUM_27
 #define MAP_PAD         ((1ULL << PIN_PAD_UP) | (1ULL << PIN_PAD_RIGHT) | (1ULL << PIN_PAD_DOWN) | (1ULL << PIN_PAD_LEFT) | (1ULL << PIN_PAD_ENTER))
 
+extern lv_indev_t *keypad;
+extern lv_indev_t *touch_screen;
+
 void lvgl_keypad_init(void);
 void lvgl_keypad_read(lv_indev_t * indev_drv, lv_indev_data_t * data);
 
