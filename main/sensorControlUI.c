@@ -361,14 +361,14 @@ static lv_obj_t *calendar_create(lv_obj_t *parent, lv_group_t *group)
 {
     lv_obj_t *obj = lv_menu_cont_create(parent);
     lv_obj_t  *calendar = lv_calendar_create(obj);
-    lv_calendar_header_arrow_create(calendar);
+    lv_obj_t *header = lv_calendar_header_arrow_create(calendar);
     lv_obj_set_size(calendar, 185, 230);
     lv_obj_align(calendar, LV_ALIGN_CENTER, 0, 27);
     lv_calendar_set_today_date(calendar, 2021, 02, 23);
     lv_calendar_set_showed_date(calendar, 2021, 02);
 
     lv_group_add_obj(group, lv_calendar_get_btnmatrix(calendar));
-    lv_obj_add_event_cb(calendar, calendar_event, LV_EVENT_KEY, NULL);
+    lv_obj_add_event_cb(calendar, calendar_event, LV_EVENT_KEY, header);
     return obj;
 }
 
@@ -531,17 +531,16 @@ static void calendar_event(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);   
     lv_obj_t *target = lv_event_get_target_obj(e);
-    lv_obj_t *calendar = lv_obj_get_parent(target);
-
+    lv_obj_t *header = lv_event_get_user_data(e);
     if (event_code == LV_EVENT_KEY)
     {
         switch(lv_event_get_key(e))
         {
             case LV_KEY_UP:
-                lv_obj_send_event(lv_obj_get_child(lv_obj_get_child(calendar, 0), 0), LV_EVENT_CLICKED, NULL);
+                lv_obj_send_event(lv_obj_get_child(header, 0), LV_EVENT_CLICKED, NULL);
                 break;
             case LV_KEY_DOWN:
-                lv_obj_send_event(lv_obj_get_child(lv_obj_get_child(calendar, 0), -1), LV_EVENT_CLICKED, NULL);
+                lv_obj_send_event(lv_obj_get_child(header, -1), LV_EVENT_CLICKED, NULL);
                 break;
             case LV_KEY_ENTER:
                 lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);

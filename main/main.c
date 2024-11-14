@@ -29,6 +29,10 @@ static void lvgl_touch_cb(lv_indev_t * indev_drv, lv_indev_data_t * data);
 
 static SemaphoreHandle_t lvgl_mux = NULL;
 
+void my_log_cb(lv_log_level_t level, const char *buf)
+{
+    ESP_LOGI(TAG, "%s", buf);
+}
 
 void app_main(void)
 {
@@ -86,7 +90,7 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init();
-
+    lv_log_register_print_cb(my_log_cb);
     lv_display_t *display = lv_display_create(LCD_H_RES, LCD_V_RES);
     lv_display_set_rotation(display, LV_DISPLAY_ROTATION_90);
     size_t draw_buffer_sz = LCD_H_RES * LVGL_DRAW_BUF_LINES * sizeof(lv_color16_t);
