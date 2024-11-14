@@ -29,6 +29,7 @@ static void lvgl_touch_cb(lv_indev_t * indev_drv, lv_indev_data_t * data);
 
 static SemaphoreHandle_t lvgl_mux = NULL;
 
+
 void app_main(void)
 {
     ESP_LOGI(TAG, "Turn off LCD backlight");

@@ -3,19 +3,26 @@
 #include "img_background.h"
 #include "esp_log.h"
 
+#define MENU_CONTENTS    2
+
 static void screen1_init(void);
 static void screen2_init(void);
 static void screen3_init(void);
 
 static void screen1_event(lv_event_t *e);
-static void screen2_event(lv_event_t *e);
 static void imu_button_pressed(lv_event_t *e);
 static void temperature_button_pressed(lv_event_t *e);
+static void screen2_event(lv_event_t *e);
+static void screen3_event(lv_event_t *e);
+static void menu_back_event(lv_event_t *e);
+static void roller_event(lv_event_t *e);
+static void calendar_event(lv_event_t *e);
 
-static void imu_create(lv_obj_t *parent);
-static void temperature_create(lv_obj_t *parent);
-static lv_obj_t *calendar_create(lv_obj_t *parent);
-static lv_obj_t *time_set_create(lv_obj_t *parent);
+
+static void imu_create(lv_obj_t *parent, lv_group_t *group);
+static void temperature_create(lv_obj_t *parent, lv_group_t *group);
+static lv_obj_t *calendar_create(lv_obj_t *parent, lv_group_t *group);
+static lv_obj_t *time_set_create(lv_obj_t *parent, lv_group_t *group);
 
 static void window_delete_event_cb(lv_event_t *e);
 static void remove_padding(lv_obj_t *obj);
@@ -37,11 +44,14 @@ static lv_obj_t *screen1;
 static lv_obj_t *screen2;
 static lv_obj_t *screen3;
 
+static lv_group_t *group_prev;
 static lv_group_t *group_screen1;
 static lv_group_t *group_screen2;
 static lv_group_t *group_screen3;
+static lv_group_t *group_menu[MENU_CONTENTS];
 
 static lv_obj_t *menu_root_page;
+static uint8_t menu_index = 0;
 extern const char *TAG;
 
 void sensorControl(void)
@@ -138,12 +148,12 @@ static void screen1_init(void)
 
     lv_obj_t *imu_cont = lv_obj_create(sensor_cont);
     lv_obj_add_style(imu_cont, &style_sensor_cont, 0);
-    imu_create(imu_cont);
+    imu_create(imu_cont, group_screen1);
     lv_obj_set_size(imu_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
     lv_obj_t *temperature_cont = lv_obj_create(sensor_cont);
     lv_obj_add_style(temperature_cont, &style_sensor_cont, 0);
-    temperature_create(temperature_cont);
+    temperature_create(temperature_cont, group_screen1);
     lv_obj_set_size(temperature_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
     lv_obj_add_event_cb(screen1, screen1_event, LV_EVENT_KEY, NULL);
@@ -185,18 +195,12 @@ static void screen3_init(void)
     lv_obj_set_style_bg_opa(menu, LV_OPA_TRANSP , 0);
     
     lv_menu_set_mode_root_back_button(menu, LV_MENU_ROOT_BACK_BUTTON_ENABLED);
-    // lv_obj_add_event_cb(menu, back_event_handler, LV_EVENT_CLICKED, menu);
+    lv_obj_add_event_cb(menu, menu_back_event, LV_EVENT_CLICKED, menu);
     lv_obj_set_size(menu, lv_display_get_horizontal_resolution(NULL), lv_display_get_vertical_resolution(NULL));
     lv_obj_center(menu);
 
-    lv_obj_t *set_date_page = lv_menu_page_create(menu, NULL);
-    lv_obj_remove_flag(set_date_page, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_hor(set_date_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
-    lv_menu_separator_create(set_date_page);
-    section = lv_menu_section_create(set_date_page);
-    calendar_create(section);
-
     lv_obj_t *set_time_page = lv_menu_page_create(menu, NULL);
+    group_menu[0] = lv_group_create();
     lv_obj_remove_flag(set_time_page, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_hor(set_time_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
     lv_menu_separator_create(set_time_page);
@@ -205,7 +209,16 @@ static void screen3_init(void)
     lv_obj_set_flex_align(set_time_page, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     section = lv_menu_section_create(set_time_page);
     lv_obj_set_style_bg_opa(section, LV_OPA_TRANSP, 0);  
-    time_set_create(section);
+    time_set_create(section, group_menu[0]);
+
+    lv_obj_t *set_date_page = lv_menu_page_create(menu, NULL);
+    group_menu[1] = lv_group_create();
+    lv_obj_remove_flag(set_date_page, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_hor(set_date_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
+    lv_menu_separator_create(set_date_page);
+    section = lv_menu_section_create(set_date_page);
+    calendar_create(section, group_menu[1]);
+
 
     menu_root_page = lv_menu_page_create(menu, "Settings");
     lv_obj_set_style_pad_hor(menu_root_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
@@ -213,23 +226,27 @@ static void screen3_init(void)
     section = lv_menu_section_create(menu_root_page);
 
     cont = lv_menu_cont_create(section);
+    lv_group_add_obj(group_screen3, cont);
+    lv_obj_add_event_cb(cont, screen3_event, LV_EVENT_KEY, NULL);
+    label = lv_label_create(cont);
+    lv_label_set_text(label, "Set time");
+    lv_menu_set_load_page_event(menu, cont, set_time_page);
+
+    cont = lv_menu_cont_create(section);
+    lv_group_add_obj(group_screen3, cont);
+    lv_obj_add_event_cb(cont, screen3_event, LV_EVENT_KEY, NULL);
     label = lv_label_create(cont);
     lv_obj_t *my_label = label;
     lv_label_set_text(my_label, "Set date");
     lv_menu_set_load_page_event(menu, cont, set_date_page);
 
-    cont = lv_menu_cont_create(section);
-    label = lv_label_create(cont);
-    lv_label_set_text(label, "Set time");
-    lv_menu_set_load_page_event(menu, cont, set_time_page);
-
     lv_menu_set_sidebar_page(menu, menu_root_page);
-    lv_obj_send_event(lv_obj_get_child(lv_obj_get_child(lv_menu_get_cur_sidebar_page(menu), 0), 0), LV_EVENT_CLICKED, NULL);
+    
 }   
 
 //Widget create functions
 
-static void imu_create(lv_obj_t *parent)
+static void imu_create(lv_obj_t *parent, lv_group_t *group)
 {
     lv_obj_t *name = lv_label_create(parent);
     lv_label_set_text(name, "IMU");
@@ -247,7 +264,7 @@ static void imu_create(lv_obj_t *parent)
     lv_label_set_text_fmt(z_val_t, "Z = %"LV_PRIu32, z_val);
 
     lv_obj_t *btn1 = lv_button_create(parent);
-    lv_group_add_obj(group_screen1, btn1);
+    lv_group_add_obj(group, btn1);
     lv_obj_set_style_outline_color(btn1, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_FOCUS_KEY);
     lv_obj_add_event_cb(btn1, screen1_event, LV_EVENT_KEY, NULL);
     lv_obj_add_event_cb(btn1, imu_button_pressed, LV_EVENT_PRESSED, NULL);
@@ -274,7 +291,7 @@ static void imu_create(lv_obj_t *parent)
 
 }
 
-static void temperature_create(lv_obj_t *parent)
+static void temperature_create(lv_obj_t *parent, lv_group_t *group)
 {
     lv_obj_t *name = lv_label_create(parent);
     lv_label_set_text(name, "Temperature");
@@ -289,7 +306,7 @@ static void temperature_create(lv_obj_t *parent)
     lv_label_set_text_fmt(humidity_val_t, "H = %"LV_PRIu32, humidity_val);
 
     lv_obj_t *btn1 = lv_button_create(parent);
-    lv_group_add_obj(group_screen1, btn1);
+    lv_group_add_obj(group, btn1);
     lv_obj_set_style_outline_color(btn1, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_FOCUS_KEY);
     lv_obj_add_event_cb(btn1, screen1_event, LV_EVENT_KEY, NULL);
     lv_obj_add_event_cb(btn1, temperature_button_pressed, LV_EVENT_PRESSED, NULL);
@@ -314,23 +331,33 @@ static void temperature_create(lv_obj_t *parent)
 
 }
 
-static lv_obj_t *time_set_create(lv_obj_t *parent)
+static lv_obj_t *time_set_create(lv_obj_t *parent, lv_group_t *group)
 {
     lv_obj_t *obj = lv_menu_cont_create(parent);
     lv_obj_set_layout(obj, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(obj, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_flex_align(obj, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
     lv_obj_t *hour_roller = lv_roller_create(obj);
+    lv_obj_set_style_outline_color(hour_roller, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_FOCUS_KEY);
+    lv_group_add_obj(group, hour_roller);
     lv_roller_set_options(hour_roller,  "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23", LV_ROLLER_MODE_INFINITE);
+    lv_obj_add_event_cb(hour_roller, roller_event, LV_EVENT_KEY, NULL);
+
     lv_obj_t *label = lv_label_create(obj);
     lv_label_set_text(label, ":");
     lv_obj_add_style(label, &style_clock, 0);
+
     lv_obj_t *min_roller = lv_roller_create(obj);
+    lv_obj_set_style_outline_color(min_roller, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_FOCUS_KEY);
+    lv_group_add_obj(group, min_roller);
     lv_roller_set_options(min_roller,  "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59", LV_ROLLER_MODE_INFINITE);
+    lv_obj_add_event_cb(min_roller, roller_event, LV_EVENT_KEY, NULL);
+
     return obj;
 }
 
-static lv_obj_t *calendar_create(lv_obj_t *parent)
+static lv_obj_t *calendar_create(lv_obj_t *parent, lv_group_t *group)
 {
     lv_obj_t *obj = lv_menu_cont_create(parent);
     lv_obj_t  *calendar = lv_calendar_create(obj);
@@ -339,6 +366,9 @@ static lv_obj_t *calendar_create(lv_obj_t *parent)
     lv_obj_align(calendar, LV_ALIGN_CENTER, 0, 27);
     lv_calendar_set_today_date(calendar, 2021, 02, 23);
     lv_calendar_set_showed_date(calendar, 2021, 02);
+
+    lv_group_add_obj(group, lv_calendar_get_btnmatrix(calendar));
+    lv_obj_add_event_cb(calendar, calendar_event, LV_EVENT_KEY, NULL);
     return obj;
 }
 
@@ -369,6 +399,7 @@ static void window_delete_event_cb(lv_event_t *e)
 
 static void group_change(lv_group_t *new_group, uint32_t index)
 {
+    group_prev = lv_indev_get_group(keypad);
     lv_indev_set_group(keypad, new_group);
     lv_obj_t *obj = lv_group_get_obj_by_index(new_group, index);
     lv_group_focus_obj(obj);
@@ -391,6 +422,12 @@ static void screen1_event(lv_event_t *e)
             case LV_KEY_DOWN:
                 group_change(group_screen2, 0);
                 lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_TOP, LVGL_ANIM_DELAY, 0, false);
+                break;
+            case LV_KEY_LEFT:
+                lv_group_focus_prev(group_screen1);
+                break;  
+            case LV_KEY_RIGHT:
+                lv_group_focus_next(group_screen1);
                 break;
         }
     }
@@ -419,6 +456,43 @@ static void screen2_event(lv_event_t *e)
     }
 }
 
+static void screen3_event(lv_event_t *e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+    lv_obj_t *target = lv_event_get_target_obj(e);
+
+    if (event_code == LV_EVENT_KEY)
+    {
+        switch(lv_event_get_key(e))
+        {
+            case LV_KEY_UP:
+                lv_group_focus_prev(group_screen3);
+                lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_CLICKED, NULL);
+                break;
+            case LV_KEY_DOWN:
+                lv_group_focus_next(group_screen3);
+                lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_CLICKED, NULL);
+                break;
+            case LV_KEY_LEFT:
+                group_change(group_screen2, 0);
+                lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
+                break;
+            case LV_KEY_ENTER:
+            case LV_KEY_RIGHT:
+                lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_PRESSED, NULL);
+                menu_index = lv_obj_get_index(target);
+                group_change(group_menu[menu_index], 0);
+                break;
+        }
+    }
+}
+
+static void menu_back_event(lv_event_t *e)
+{
+    group_change(group_screen2, 0);
+    lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
+}
+
 static void imu_button_pressed(lv_event_t *e)
 {
     ESP_LOGI(TAG, "IMU button pressed");
@@ -427,4 +501,52 @@ static void imu_button_pressed(lv_event_t *e)
 static void temperature_button_pressed(lv_event_t *e)
 {
     ESP_LOGI(TAG, "Temperature button pressed");
+}
+
+static void roller_event(lv_event_t *e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);   
+    lv_obj_t *target = lv_event_get_target_obj(e);
+    lv_group_t *group = lv_obj_get_group(target);
+
+    if (event_code == LV_EVENT_KEY)
+    {
+        switch(lv_event_get_key(e))
+        {
+            case LV_KEY_LEFT:
+                lv_group_focus_prev(group);
+                break;
+            case LV_KEY_RIGHT:
+                lv_group_focus_next(group);
+                break;
+            case LV_KEY_ENTER:
+                lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
+                group_change(group_prev, menu_index);
+                break;
+        }
+    }
+}
+
+static void calendar_event(lv_event_t *e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);   
+    lv_obj_t *target = lv_event_get_target_obj(e);
+    lv_obj_t *calendar = lv_obj_get_parent(target);
+
+    if (event_code == LV_EVENT_KEY)
+    {
+        switch(lv_event_get_key(e))
+        {
+            case LV_KEY_UP:
+                lv_obj_send_event(lv_obj_get_child(lv_obj_get_child(calendar, 0), 0), LV_EVENT_CLICKED, NULL);
+                break;
+            case LV_KEY_DOWN:
+                lv_obj_send_event(lv_obj_get_child(lv_obj_get_child(calendar, 0), -1), LV_EVENT_CLICKED, NULL);
+                break;
+            case LV_KEY_ENTER:
+                lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
+                group_change(group_prev, menu_index);
+                break;
+        }
+    }
 }

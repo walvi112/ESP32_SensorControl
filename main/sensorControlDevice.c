@@ -56,10 +56,10 @@ void lvgl_keypad_read(lv_indev_t * indev, lv_indev_data_t * data)
                 act_key = LV_KEY_DOWN;
                 break;
             case 3:
-                act_key = LV_KEY_PREV;
+                act_key = LV_KEY_LEFT;
                 break;
             case 4:
-                act_key = LV_KEY_NEXT;
+                act_key = LV_KEY_RIGHT;
                 break;
             case 5:
                 act_key = LV_KEY_ENTER;
