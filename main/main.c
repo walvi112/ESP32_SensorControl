@@ -25,14 +25,15 @@ static void increase_lvgl_tick(void *arg);
 static bool lvgl_lock(int timeout_ms);
 static void lvgl_unlock();
 static void lvgl_port_task(void *arg);
-static void lvgl_touch_cb(lv_indev_t * indev_drv, lv_indev_data_t * data);
 
 static SemaphoreHandle_t lvgl_mux = NULL;
 
+#if LV_USE_LOG
 void my_log_cb(lv_log_level_t level, const char *buf)
 {
     ESP_LOGI(TAG, "%s", buf);
 }
+#endif
 
 void app_main(void)
 {
@@ -90,7 +91,11 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init();
+
+    #if LV_USE_LOG
     lv_log_register_print_cb(my_log_cb);
+    #endif
+
     lv_display_t *display = lv_display_create(LCD_H_RES, LCD_V_RES);
     lv_display_set_rotation(display, LV_DISPLAY_ROTATION_90);
     size_t draw_buffer_sz = LCD_H_RES * LVGL_DRAW_BUF_LINES * sizeof(lv_color16_t);
@@ -141,19 +146,23 @@ void app_main(void)
     ESP_LOGI(TAG, "Initialize touch controller XPT2046");
     ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &tp));
 
+    #if USE_KEYPAD
     ESP_LOGI(TAG, "Init KeyPad");
     lvgl_keypad_init();
     keypad = lv_indev_create(); 
     lv_indev_set_display(keypad, display);
     lv_indev_set_type(keypad, LV_INDEV_TYPE_KEYPAD); 
     lv_indev_set_read_cb(keypad, lvgl_keypad_read);
+    #endif
 
+    #if USE_TOUCH_SCREEN
     ESP_LOGI(TAG, "Init TouchScreen");
     touch_screen = lv_indev_create(); 
     lv_indev_set_display(touch_screen, display);
     lv_indev_set_type(touch_screen, LV_INDEV_TYPE_POINTER); 
     lv_indev_set_user_data(touch_screen, tp);
     lv_indev_set_read_cb(touch_screen, lvgl_touch_cb);
+    #endif
 
     lvgl_mux = xSemaphoreCreateRecursiveMutex();
     assert(lvgl_mux);
@@ -162,7 +171,7 @@ void app_main(void)
 
     ESP_LOGI(TAG, "Display Sensor Control");
     if (lvgl_lock(-1)) {
-        sensorControl();
+        sensorControlInit();
         lvgl_unlock();
     }
 
@@ -248,23 +257,3 @@ static void lvgl_port_task(void *arg)
     }
 }
 
-void lvgl_touch_cb(lv_indev_t * indev_drv, lv_indev_data_t * data)
-{
-    uint16_t touchpad_x[1] = {0};
-    uint16_t touchpad_y[1] = {0};
-    uint8_t touchpad_cnt = 0;
-
-    esp_lcd_touch_handle_t touch_pad = lv_indev_get_user_data(indev_drv);
-    ESP_ERROR_CHECK(esp_lcd_touch_read_data(touch_pad));
-
-    /* Get coordinates */
-    bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_pad, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
-
-    if (touchpad_pressed && touchpad_cnt > 0) {
-        data->point.x = touchpad_x[0];
-        data->point.y = touchpad_y[0];
-        data->state = LV_INDEV_STATE_PRESSED;
-    } else {
-        data->state = LV_INDEV_STATE_RELEASED;
-    }
-}

@@ -75,4 +75,24 @@ void lvgl_keypad_read(lv_indev_t * indev, lv_indev_data_t * data)
     data->key = last_key;
 }
 
+void lvgl_touch_cb(lv_indev_t * indev_drv, lv_indev_data_t * data)
+{
+    uint16_t touchpad_x[1] = {0};
+    uint16_t touchpad_y[1] = {0};
+    uint8_t touchpad_cnt = 0;
+
+    esp_lcd_touch_handle_t touch_pad = lv_indev_get_user_data(indev_drv);
+    ESP_ERROR_CHECK(esp_lcd_touch_read_data(touch_pad));
+
+    /* Get coordinates */
+    bool touchpad_pressed = esp_lcd_touch_get_coordinates(touch_pad, touchpad_x, touchpad_y, NULL, &touchpad_cnt, 1);
+
+    if (touchpad_pressed && touchpad_cnt > 0) {
+        data->point.x = touchpad_x[0];
+        data->point.y = touchpad_y[0];
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else {
+        data->state = LV_INDEV_STATE_RELEASED;
+    }
+}
 

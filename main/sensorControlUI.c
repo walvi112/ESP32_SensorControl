@@ -54,7 +54,7 @@ static lv_obj_t *menu_root_page;
 static uint8_t menu_index = 0;
 extern const char *TAG;
 
-void sensorControl(void)
+void sensorControlInit(void)
 {
     font_large = LV_FONT_DEFAULT;
     font_normal = LV_FONT_DEFAULT;
@@ -474,6 +474,7 @@ static void screen3_event(lv_event_t *e)
                 lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_CLICKED, NULL);
                 break;
             case LV_KEY_LEFT:
+                lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
                 group_change(group_screen2, 0);
                 lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
                 break;
