@@ -2,6 +2,8 @@
 #include "sensorControlDevice.h"
 #include "img_background.h"
 #include "esp_log.h"
+#include <sys/time.h>
+#include <time.h>
 
 #define MENU_CONTENTS    2
 
@@ -18,6 +20,7 @@ static void menu_back_event(lv_event_t *e);
 static void roller_event(lv_event_t *e);
 static void calendar_event(lv_event_t *e);
 
+static void get_time_cb(lv_timer_t *timer);
 
 static void imu_create(lv_obj_t *parent, lv_group_t *group);
 static void temperature_create(lv_obj_t *parent, lv_group_t *group);
@@ -44,6 +47,11 @@ static lv_obj_t *screen1;
 static lv_obj_t *screen2;
 static lv_obj_t *screen3;
 
+static lv_obj_t *screen1_date_label;
+static lv_obj_t *screen1_time_label;
+static lv_obj_t *screen2_date_label;
+static lv_obj_t *screen2_time_label;
+
 static lv_group_t *group_prev;
 static lv_group_t *group_screen1;
 static lv_group_t *group_screen2;
@@ -51,7 +59,15 @@ static lv_group_t *group_screen3;
 static lv_group_t *group_menu[MENU_CONTENTS];
 
 static lv_obj_t *menu_root_page;
+
+static lv_timer_t *lv_timer;
+
 static uint8_t menu_index = 0;
+static struct timeval now;
+static struct tm *time_struct;
+static char now_time_buff[6];
+static char now_date_buff[28];
+
 extern const char *TAG;
 
 void sensorControlInit(void)
@@ -99,6 +115,8 @@ void sensorControlInit(void)
     lv_style_set_border_width(&style_bullet, 0);
     lv_style_set_radius(&style_bullet, LV_RADIUS_CIRCLE);
 
+    lv_timer = lv_timer_create(get_time_cb, 10000, NULL);
+    lv_timer_ready(lv_timer);
 
     screen1_init();
     screen2_init();
@@ -126,15 +144,15 @@ static void screen1_init(void)
     };
     lv_obj_set_grid_dsc_array(screen1, main_column_dsc, main_row_dsc);
 
-    lv_obj_t *date = lv_label_create(screen1);
-    lv_label_set_text(date, "Monday 7th");
-    lv_obj_add_style(date, &style_title, 0);
-    lv_obj_set_style_pad_top(date, 10 , 0);
+    screen1_date_label = lv_label_create(screen1);
+    lv_label_set_text_static(screen1_date_label, now_date_buff);
+    lv_obj_add_style(screen1_date_label, &style_title, 0);
+    lv_obj_set_style_pad_top(screen1_date_label, 10 , 0);
 
 
-    lv_obj_t *time = lv_label_create(screen1);
-    lv_label_set_text(time, "00:00");
-    lv_obj_add_style(time, &style_title, 0);
+    screen1_time_label = lv_label_create(screen1);
+    lv_label_set_text(screen1_time_label, now_time_buff);
+    lv_obj_add_style(screen1_time_label, &style_title, 0);
 
     lv_obj_t *sensor_cont = lv_obj_create(screen1);
     lv_obj_add_style(sensor_cont, &style_cont, 0);
@@ -142,8 +160,8 @@ static void screen1_init(void)
     lv_obj_set_flex_flow(sensor_cont, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_flex_align(sensor_cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
-    lv_obj_set_grid_cell(date, LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 0, 1);
-    lv_obj_set_grid_cell(time, LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 1, 1);
+    lv_obj_set_grid_cell(screen1_date_label, LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+    lv_obj_set_grid_cell(screen1_time_label, LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 1, 1);
     lv_obj_set_grid_cell(sensor_cont, LV_GRID_ALIGN_STRETCH, 0, 3, LV_GRID_ALIGN_STRETCH, 3, 1);
 
     lv_obj_t *imu_cont = lv_obj_create(sensor_cont);
@@ -156,7 +174,7 @@ static void screen1_init(void)
     temperature_create(temperature_cont, group_screen1);
     lv_obj_set_size(temperature_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
-    lv_obj_add_event_cb(screen1, screen1_event, LV_EVENT_KEY, NULL);
+    lv_obj_add_event_cb(screen1, screen1_event, LV_EVENT_ALL, NULL);
 }
 
 static void screen2_init(void)
@@ -170,15 +188,15 @@ static void screen2_init(void)
     lv_obj_set_flex_flow(screen2, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(screen2, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    lv_obj_t *date = lv_label_create(screen2);
-    lv_label_set_text(date, "Monday 7th");
-    lv_obj_add_style(date, &style_title, 0);
+    screen2_date_label = lv_label_create(screen2);
+    lv_label_set_text_static(screen2_date_label, now_date_buff);
+    lv_obj_add_style(screen2_date_label, &style_title, 0);
 
-    lv_obj_t *time = lv_label_create(screen2);
-    lv_label_set_text(time, "00:00");
-    lv_obj_add_style(time, &style_clock, 0);
+    screen2_time_label = lv_label_create(screen2);
+    lv_label_set_text_static(screen2_time_label, now_time_buff);
+    lv_obj_add_style(screen2_time_label, &style_clock, 0);
 
-    lv_obj_add_event_cb(screen2, screen2_event, LV_EVENT_KEY, NULL);
+    lv_obj_add_event_cb(screen2, screen2_event, LV_EVENT_ALL, NULL);
 }
 
 static void screen3_init(void)
@@ -364,11 +382,10 @@ static lv_obj_t *calendar_create(lv_obj_t *parent, lv_group_t *group)
     lv_obj_t *header = lv_calendar_header_arrow_create(calendar);
     lv_obj_set_size(calendar, 185, 230);
     lv_obj_align(calendar, LV_ALIGN_CENTER, 0, 27);
-    lv_calendar_set_today_date(calendar, 2021, 02, 23);
-    lv_calendar_set_showed_date(calendar, 2021, 02);
 
     lv_group_add_obj(group, lv_calendar_get_btnmatrix(calendar));
     lv_obj_add_event_cb(calendar, calendar_event, LV_EVENT_KEY, header);
+    lv_obj_add_event_cb(calendar, calendar_event, LV_EVENT_REFRESH, header);
     return obj;
 }
 
@@ -411,48 +428,67 @@ static void screen1_event(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
-    if (event_code == LV_EVENT_KEY)
+    switch(event_code)
     {   
-        switch(lv_event_get_key(e))
-        {   
-            case LV_KEY_UP:
-                group_change(group_screen2, 0);
-                lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
-                break;
-            case LV_KEY_DOWN:
-                group_change(group_screen2, 0);
-                lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_TOP, LVGL_ANIM_DELAY, 0, false);
-                break;
-            case LV_KEY_LEFT:
-                lv_group_focus_prev(group_screen1);
-                break;  
-            case LV_KEY_RIGHT:
-                lv_group_focus_next(group_screen1);
-                break;
-        }
+        case LV_EVENT_KEY:
+            switch(lv_event_get_key(e))
+            {   
+                case LV_KEY_UP:
+                    group_change(group_screen2, 0);
+                    lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
+                    break;
+                case LV_KEY_DOWN:
+                    group_change(group_screen2, 0);
+                    lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_TOP, LVGL_ANIM_DELAY, 0, false);
+                    break;
+                case LV_KEY_LEFT:
+                    lv_group_focus_prev(group_screen1);
+                    break;  
+                case LV_KEY_RIGHT:
+                    lv_group_focus_next(group_screen1);
+                    break;
+            }
+            break;
+        case LV_EVENT_SCREEN_LOADED:
+        case LV_EVENT_REFRESH:
+            lv_label_set_text_static(screen1_date_label, now_date_buff);
+            lv_label_set_text_static(screen1_time_label, now_time_buff);
+            break;
+        default:
+            break;
+
     }
 }
 
 static void screen2_event(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
-    if (event_code == LV_EVENT_KEY)
+    switch(event_code)
     {
-        switch(lv_event_get_key(e))
-        {
-            case LV_KEY_UP:
-                group_change(group_screen1, 0);
-                lv_screen_load_anim(screen1, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
-                break;
-            case LV_KEY_DOWN:
-                group_change(group_screen1, 0);
-                lv_screen_load_anim(screen1, LV_SCR_LOAD_ANIM_MOVE_TOP, LVGL_ANIM_DELAY, 0, false);
-                break;
-            case LV_KEY_ENTER:
-                group_change(group_screen3, 0);
-                lv_screen_load_anim(screen3, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
-                break;
-        }
+        case LV_EVENT_KEY:
+            switch(lv_event_get_key(e))
+            {
+                case LV_KEY_UP:
+                    group_change(group_screen1, 0);
+                    lv_screen_load_anim(screen1, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
+                    break;
+                case LV_KEY_DOWN:
+                    group_change(group_screen1, 0);
+                    lv_screen_load_anim(screen1, LV_SCR_LOAD_ANIM_MOVE_TOP, LVGL_ANIM_DELAY, 0, false);
+                    break;
+                case LV_KEY_ENTER:
+                    group_change(group_screen3, 0);
+                    lv_screen_load_anim(screen3, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
+                    break;
+            }
+            break;
+        case LV_EVENT_SCREEN_LOADED:
+        case LV_EVENT_REFRESH:
+            lv_label_set_text_static(screen2_date_label, now_date_buff);
+            lv_label_set_text_static(screen2_time_label, now_time_buff);
+            break;
+        default:
+            break;
     }
 }
 
@@ -461,30 +497,34 @@ static void screen3_event(lv_event_t *e)
     lv_event_code_t event_code = lv_event_get_code(e);
     lv_obj_t *target = lv_event_get_target_obj(e);
 
-    if (event_code == LV_EVENT_KEY)
+    switch(event_code)
     {
-        switch(lv_event_get_key(e))
-        {
-            case LV_KEY_UP:
-                lv_group_focus_prev(group_screen3);
-                lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_CLICKED, NULL);
-                break;
-            case LV_KEY_DOWN:
-                lv_group_focus_next(group_screen3);
-                lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_CLICKED, NULL);
-                break;
-            case LV_KEY_LEFT:
-                lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
-                group_change(group_screen2, 0);
-                lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
-                break;
-            case LV_KEY_ENTER:
-            case LV_KEY_RIGHT:
-                lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_PRESSED, NULL);
-                menu_index = lv_obj_get_index(target);
-                group_change(group_menu[menu_index], 0);
-                break;
-        }
+        case LV_EVENT_KEY:
+            switch(lv_event_get_key(e))
+            {
+                case LV_KEY_UP:
+                    lv_group_focus_prev(group_screen3);
+                    lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_CLICKED, NULL);
+                    break;
+                case LV_KEY_DOWN:
+                    lv_group_focus_next(group_screen3);
+                    lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_CLICKED, NULL);
+                    break;
+                case LV_KEY_LEFT:
+                    lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
+                    group_change(group_screen2, 0);
+                    lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
+                    break;
+                case LV_KEY_ENTER:
+                case LV_KEY_RIGHT:
+                    lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_PRESSED, NULL);
+                    menu_index = lv_obj_get_index(target);
+                    group_change(group_menu[menu_index], 0);
+                    break;
+            }
+            break;
+        default:
+            break;
     }
 }
 
@@ -510,21 +550,25 @@ static void roller_event(lv_event_t *e)
     lv_obj_t *target = lv_event_get_target_obj(e);
     lv_group_t *group = lv_obj_get_group(target);
 
-    if (event_code == LV_EVENT_KEY)
+    switch(event_code)
     {
-        switch(lv_event_get_key(e))
-        {
-            case LV_KEY_LEFT:
-                lv_group_focus_prev(group);
-                break;
-            case LV_KEY_RIGHT:
-                lv_group_focus_next(group);
-                break;
-            case LV_KEY_ENTER:
-                lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
-                group_change(group_prev, menu_index);
-                break;
-        }
+        case LV_EVENT_KEY:
+            switch(lv_event_get_key(e))
+            {
+                case LV_KEY_LEFT:
+                    lv_group_focus_prev(group);
+                    break;
+                case LV_KEY_RIGHT:
+                    lv_group_focus_next(group);
+                    break;
+                case LV_KEY_ENTER:
+                    lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
+                    group_change(group_prev, menu_index);
+                    break;
+            }
+            break;
+        default:
+            break;
     }
 }
 
@@ -533,20 +577,39 @@ static void calendar_event(lv_event_t *e)
     lv_event_code_t event_code = lv_event_get_code(e);   
     lv_obj_t *target = lv_event_get_target_obj(e);
     lv_obj_t *header = lv_event_get_user_data(e);
-    if (event_code == LV_EVENT_KEY)
+    switch(event_code)
     {
-        switch(lv_event_get_key(e))
-        {
-            case LV_KEY_UP:
-                lv_obj_send_event(lv_obj_get_child(header, 0), LV_EVENT_CLICKED, NULL);
-                break;
-            case LV_KEY_DOWN:
-                lv_obj_send_event(lv_obj_get_child(header, -1), LV_EVENT_CLICKED, NULL);
-                break;
-            case LV_KEY_ENTER:
-                lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
-                group_change(group_prev, menu_index);
-                break;
-        }
+        case LV_EVENT_KEY:
+            switch(lv_event_get_key(e))
+            {
+                case LV_KEY_UP:
+                    lv_obj_send_event(lv_obj_get_child(header, 0), LV_EVENT_CLICKED, NULL);
+                    break;
+                case LV_KEY_DOWN:
+                    lv_obj_send_event(lv_obj_get_child(header, -1), LV_EVENT_CLICKED, NULL);
+                    break;
+                case LV_KEY_ENTER:
+                    lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
+                    group_change(group_prev, menu_index);
+                    break;
+            }
+            break;
+        case LV_EVENT_REFRESH:
+            lv_calendar_set_today_date(target, 1900 + time_struct->tm_year, 1 + time_struct->tm_mon, time_struct->tm_mday);
+            lv_calendar_set_showed_date(target, 1900 + time_struct->tm_year, 1 + time_struct->tm_mon);
+            break;
+        default:
+            break;
     }
+
+}
+
+//Get time cb
+static void get_time_cb(lv_timer_t *timer)
+{
+    gettimeofday(&now, NULL);
+    time_struct = gmtime(&now.tv_sec);
+    strftime(now_time_buff, 6, "%R", time_struct);
+    strftime(now_date_buff, 28, "%A %B %e %G", time_struct);
+    lv_obj_send_event(lv_screen_active(), LV_EVENT_REFRESH, NULL);
 }

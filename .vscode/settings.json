@@ -26,7 +26,8 @@
         "sensorcontrolui.h": "c",
         "esp_lcd_touch_xpt2046.h": "c",
         "esp_log.h": "c",
-        "esp_timer.h": "c"
+        "esp_timer.h": "c",
+        "chrono": "c"
     },
     "idf.gitPath": "git",
     "idf.espIdfPathWin": "d:\\Espressif\\frameworks\\esp-idf-v5.3.1",
