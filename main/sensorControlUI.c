@@ -19,6 +19,7 @@ static void screen3_event(lv_event_t *e);
 static void menu_back_event(lv_event_t *e);
 static void roller_event(lv_event_t *e);
 static void calendar_event(lv_event_t *e);
+static void setting_event(lv_event_t *e);
 
 static void get_time_cb(lv_timer_t *timer);
 
@@ -26,6 +27,7 @@ static void imu_create(lv_obj_t *parent, lv_group_t *group);
 static void temperature_create(lv_obj_t *parent, lv_group_t *group);
 static lv_obj_t *calendar_create(lv_obj_t *parent, lv_group_t *group);
 static lv_obj_t *time_set_create(lv_obj_t *parent, lv_group_t *group);
+static void setting_confirm_msgbox_create(void);
 
 static void window_delete_event_cb(lv_event_t *e);
 static void remove_padding(lv_obj_t *obj);
@@ -56,6 +58,7 @@ static lv_group_t *group_prev;
 static lv_group_t *group_screen1;
 static lv_group_t *group_screen2;
 static lv_group_t *group_screen3;
+static lv_group_t *group_msg;
 static lv_group_t *group_menu[MENU_CONTENTS];
 
 static lv_obj_t *menu_root_page;
@@ -384,11 +387,20 @@ static lv_obj_t *calendar_create(lv_obj_t *parent, lv_group_t *group)
     lv_obj_align(calendar, LV_ALIGN_CENTER, 0, 27);
 
     lv_group_add_obj(group, lv_calendar_get_btnmatrix(calendar));
-    lv_obj_add_event_cb(calendar, calendar_event, LV_EVENT_KEY, header);
-    lv_obj_add_event_cb(calendar, calendar_event, LV_EVENT_REFRESH, header);
+    lv_obj_add_event_cb(calendar, calendar_event, LV_EVENT_ALL, header);
     return obj;
 }
 
+static void setting_confirm_msgbox_create(void)
+{
+    lv_obj_t * mbox1 = lv_msgbox_create(NULL);
+    lv_msgbox_add_title(mbox1, "Apply change ?");
+    lv_obj_t * btn;
+    btn = lv_msgbox_add_footer_button(mbox1, "Apply");
+    lv_obj_add_event_cb(btn, setting_event, LV_EVENT_CLICKED, NULL);
+    btn = lv_msgbox_add_footer_button(mbox1, "Cancel");
+    lv_obj_add_event_cb(btn, setting_event, LV_EVENT_CLICKED, NULL);
+}
 
 //Support functions
 
@@ -477,6 +489,7 @@ static void screen2_event(lv_event_t *e)
                     lv_screen_load_anim(screen1, LV_SCR_LOAD_ANIM_MOVE_TOP, LVGL_ANIM_DELAY, 0, false);
                     break;
                 case LV_KEY_ENTER:
+                    lv_obj_send_event(lv_obj_get_parent(lv_group_get_obj_by_index(group_menu[1], 0)), LV_EVENT_REFRESH, NULL); //send refresh date event to calendar setting
                     group_change(group_screen3, 0);
                     lv_screen_load_anim(screen3, LV_SCR_LOAD_ANIM_NONE, 0, 0, false);
                     break;
@@ -496,7 +509,6 @@ static void screen3_event(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
     lv_obj_t *target = lv_event_get_target_obj(e);
-
     switch(event_code)
     {
         case LV_EVENT_KEY:
@@ -519,7 +531,7 @@ static void screen3_event(lv_event_t *e)
                 case LV_KEY_RIGHT:
                     lv_obj_send_event(lv_group_get_focused(group_screen3), LV_EVENT_PRESSED, NULL);
                     menu_index = lv_obj_get_index(target);
-                    group_change(group_menu[menu_index], 0);
+                    group_change(group_menu[menu_index], 0); 
                     break;
             }
             break;
@@ -562,8 +574,10 @@ static void roller_event(lv_event_t *e)
                     lv_group_focus_next(group);
                     break;
                 case LV_KEY_ENTER:
+                    setting_confirm_msgbox_create();
                     lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
                     group_change(group_prev, menu_index);
+                    
                     break;
             }
             break;
@@ -601,7 +615,14 @@ static void calendar_event(lv_event_t *e)
         default:
             break;
     }
+}
 
+static void setting_event(lv_event_t *e)
+{
+    lv_obj_t * btn = lv_event_get_target(e);
+    lv_obj_t * label = lv_obj_get_child(btn, 0);
+    LV_UNUSED(label);
+    LV_LOG_USER("Button %s clicked", lv_label_get_text(label));
 }
 
 //Get time cb
