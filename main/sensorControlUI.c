@@ -44,6 +44,7 @@ static lv_style_t style_clock;
 static lv_style_t style_title;
 static lv_style_t style_icon;
 static lv_style_t style_bullet;
+static lv_style_t style_button;
 
 static lv_obj_t *screen1;
 static lv_obj_t *screen2;
@@ -62,6 +63,7 @@ static lv_group_t *group_msg;
 static lv_group_t *group_menu[MENU_CONTENTS];
 
 static lv_obj_t *menu_root_page;
+static lv_obj_t *mbox1;
 
 static lv_timer_t *lv_timer;
 
@@ -117,6 +119,10 @@ void sensorControlInit(void)
     lv_style_init(&style_bullet);
     lv_style_set_border_width(&style_bullet, 0);
     lv_style_set_radius(&style_bullet, LV_RADIUS_CIRCLE);
+
+    lv_style_init(&style_button);
+    lv_style_set_bg_color(&style_button, lv_palette_main(LV_PALETTE_ORANGE));
+    lv_style_set_outline_opa(&style_button, LV_OPA_TRANSP);
 
     lv_timer = lv_timer_create(get_time_cb, 10000, NULL);
     lv_timer_ready(lv_timer);
@@ -262,7 +268,7 @@ static void screen3_init(void)
     lv_menu_set_load_page_event(menu, cont, set_date_page);
 
     lv_menu_set_sidebar_page(menu, menu_root_page);
-    
+    group_msg = lv_group_create();
 }   
 
 //Widget create functions
@@ -286,7 +292,7 @@ static void imu_create(lv_obj_t *parent, lv_group_t *group)
 
     lv_obj_t *btn1 = lv_button_create(parent);
     lv_group_add_obj(group, btn1);
-    lv_obj_set_style_outline_color(btn1, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_FOCUS_KEY);
+    lv_obj_add_style(btn1, &style_button, LV_STATE_FOCUS_KEY);
     lv_obj_add_event_cb(btn1, screen1_event, LV_EVENT_KEY, NULL);
     lv_obj_add_event_cb(btn1, imu_button_pressed, LV_EVENT_PRESSED, NULL);
     lv_obj_remove_flag(btn1, LV_OBJ_FLAG_PRESS_LOCK);
@@ -328,7 +334,7 @@ static void temperature_create(lv_obj_t *parent, lv_group_t *group)
 
     lv_obj_t *btn1 = lv_button_create(parent);
     lv_group_add_obj(group, btn1);
-    lv_obj_set_style_outline_color(btn1, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_FOCUS_KEY);
+    lv_obj_add_style(btn1, &style_button, LV_STATE_FOCUS_KEY);
     lv_obj_add_event_cb(btn1, screen1_event, LV_EVENT_KEY, NULL);
     lv_obj_add_event_cb(btn1, temperature_button_pressed, LV_EVENT_PRESSED, NULL);
     lv_obj_remove_flag(btn1, LV_OBJ_FLAG_PRESS_LOCK);
@@ -393,13 +399,20 @@ static lv_obj_t *calendar_create(lv_obj_t *parent, lv_group_t *group)
 
 static void setting_confirm_msgbox_create(void)
 {
-    lv_obj_t * mbox1 = lv_msgbox_create(NULL);
+    mbox1 = lv_msgbox_create(NULL);
+    lv_obj_set_style_outline_color(mbox1, lv_palette_main(LV_PALETTE_ORANGE), LV_STATE_DEFAULT);
     lv_msgbox_add_title(mbox1, "Apply change ?");
-    lv_obj_t * btn;
+    lv_obj_t *btn;
     btn = lv_msgbox_add_footer_button(mbox1, "Apply");
-    lv_obj_add_event_cb(btn, setting_event, LV_EVENT_CLICKED, NULL);
+    lv_group_add_obj(group_msg, btn);
+    lv_obj_add_style(btn, &style_button, LV_STATE_FOCUS_KEY);
+    lv_obj_add_event_cb(btn, setting_event, LV_EVENT_KEY, NULL);
     btn = lv_msgbox_add_footer_button(mbox1, "Cancel");
-    lv_obj_add_event_cb(btn, setting_event, LV_EVENT_CLICKED, NULL);
+    lv_group_add_obj(group_msg, btn);
+    lv_obj_add_style(btn, &style_button, LV_STATE_FOCUS_KEY);
+    lv_obj_add_event_cb(btn, setting_event, LV_EVENT_KEY, NULL);
+    ESP_LOGI(TAG, "%ld", (long) lv_group_get_obj_count(group_msg));
+    group_change(group_msg, 0);
 }
 
 //Support functions
@@ -423,6 +436,7 @@ static void window_delete_event_cb(lv_event_t *e)
         lv_style_reset(&style_title);
         lv_style_reset(&style_icon);
         lv_style_reset(&style_bullet);
+        lv_style_reset(&style_button);
     }
 }
 
@@ -574,10 +588,8 @@ static void roller_event(lv_event_t *e)
                     lv_group_focus_next(group);
                     break;
                 case LV_KEY_ENTER:
-                    setting_confirm_msgbox_create();
                     lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
-                    group_change(group_prev, menu_index);
-                    
+                    setting_confirm_msgbox_create();                    
                     break;
             }
             break;
@@ -604,7 +616,7 @@ static void calendar_event(lv_event_t *e)
                     break;
                 case LV_KEY_ENTER:
                     lv_obj_send_event(target, LV_EVENT_DEFOCUSED, NULL);
-                    group_change(group_prev, menu_index);
+                    setting_confirm_msgbox_create();
                     break;
             }
             break;
@@ -619,10 +631,35 @@ static void calendar_event(lv_event_t *e)
 
 static void setting_event(lv_event_t *e)
 {
+    lv_event_code_t event_code = lv_event_get_code(e);   
     lv_obj_t * btn = lv_event_get_target(e);
     lv_obj_t * label = lv_obj_get_child(btn, 0);
     LV_UNUSED(label);
     LV_LOG_USER("Button %s clicked", lv_label_get_text(label));
+    switch(event_code)
+    {
+        case LV_EVENT_KEY:
+            switch(lv_event_get_key(e))
+            {
+                case LV_KEY_UP:
+                case LV_KEY_LEFT:
+                    lv_group_focus_prev(group_msg);
+                    break;
+                case LV_KEY_DOWN:                    
+                case LV_KEY_RIGHT:
+                    lv_group_focus_next(group_msg);
+                    break;
+                case LV_KEY_ENTER:
+                    group_change(group_screen3, menu_index);
+                    lv_group_remove_all_objs(group_msg);
+                    lv_msgbox_close(mbox1);
+                    break;
+            }
+            break;
+        default:
+            break;
+    }
+    
 }
 
 //Get time cb
