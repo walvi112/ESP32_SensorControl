@@ -227,7 +227,7 @@ static void screen3_init(void)
     lv_obj_center(menu);
 
     lv_obj_t *set_time_page = lv_menu_page_create(menu, NULL);
-    group_menu[0] = lv_group_create();
+    group_menu[MENU_SET_TIME] = lv_group_create();
     lv_obj_remove_flag(set_time_page, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_hor(set_time_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
     lv_menu_separator_create(set_time_page);
@@ -236,15 +236,15 @@ static void screen3_init(void)
     lv_obj_set_flex_align(set_time_page, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     section = lv_menu_section_create(set_time_page);
     lv_obj_set_style_bg_opa(section, LV_OPA_TRANSP, 0);  
-    time_set_create(section, group_menu[0]);
+    time_set_create(section, group_menu[MENU_SET_TIME]);
 
     lv_obj_t *set_date_page = lv_menu_page_create(menu, NULL);
-    group_menu[1] = lv_group_create();
+    group_menu[MENU_SET_DATE] = lv_group_create();
     lv_obj_remove_flag(set_date_page, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_hor(set_date_page, lv_obj_get_style_pad_left(lv_menu_get_main_header(menu), 0), 0);
     lv_menu_separator_create(set_date_page);
     section = lv_menu_section_create(set_date_page);
-    calendar_create(section, group_menu[1]);
+    calendar_create(section, group_menu[MENU_SET_DATE]);
 
 
     menu_root_page = lv_menu_page_create(menu, "Settings");
@@ -406,12 +406,11 @@ static void setting_confirm_msgbox_create(void)
     btn = lv_msgbox_add_footer_button(mbox1, "Apply");
     lv_group_add_obj(group_msg, btn);
     lv_obj_add_style(btn, &style_button, LV_STATE_FOCUS_KEY);
-    lv_obj_add_event_cb(btn, setting_event, LV_EVENT_KEY, NULL);
+    lv_obj_add_event_cb(btn, setting_event, LV_EVENT_KEY, (void*) APPLY);
     btn = lv_msgbox_add_footer_button(mbox1, "Cancel");
     lv_group_add_obj(group_msg, btn);
     lv_obj_add_style(btn, &style_button, LV_STATE_FOCUS_KEY);
-    lv_obj_add_event_cb(btn, setting_event, LV_EVENT_KEY, NULL);
-    ESP_LOGI(TAG, "%ld", (long) lv_group_get_obj_count(group_msg));
+    lv_obj_add_event_cb(btn, setting_event, LV_EVENT_KEY, (void*) CANCEL);
     group_change(group_msg, 0);
 }
 
@@ -446,6 +445,19 @@ static void group_change(lv_group_t *new_group, uint32_t index)
     lv_indev_set_group(keypad, new_group);
     lv_obj_t *obj = lv_group_get_obj_by_index(new_group, index);
     lv_group_focus_obj(obj);
+}
+
+static void setting_apply(uint8_t menu_index)
+{
+    switch(menu_index)
+    {
+        case MENU_SET_TIME:
+            LV_LOG_USER("Change time applied");
+            break;
+        case MENU_SET_DATE:
+            LV_LOG_USER("Change date applied");
+            break;
+    }
 }
 
 //Event cb function
@@ -632,10 +644,6 @@ static void calendar_event(lv_event_t *e)
 static void setting_event(lv_event_t *e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);   
-    lv_obj_t * btn = lv_event_get_target(e);
-    lv_obj_t * label = lv_obj_get_child(btn, 0);
-    LV_UNUSED(label);
-    LV_LOG_USER("Button %s clicked", lv_label_get_text(label));
     switch(event_code)
     {
         case LV_EVENT_KEY:
@@ -650,9 +658,11 @@ static void setting_event(lv_event_t *e)
                     lv_group_focus_next(group_msg);
                     break;
                 case LV_KEY_ENTER:
-                    group_change(group_screen3, menu_index);
-                    lv_group_remove_all_objs(group_msg);
                     lv_msgbox_close(mbox1);
+                    lv_obj_send_event(lv_group_get_obj_by_index(group_screen3, menu_index), LV_EVENT_RELEASED, NULL);
+                    group_change(group_screen3, menu_index);
+                    if ((uintptr_t) lv_event_get_user_data(e))
+                        setting_apply((uint8_t) menu_index);
                     break;
             }
             break;

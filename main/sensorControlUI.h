@@ -7,6 +7,16 @@ extern "C" {
 
 #include "sensorControlConfig.h"
 
+enum {
+    MENU_SET_TIME,
+    MENU_SET_DATE,
+};
+
+enum {
+    CANCEL,
+    APPLY,
+};
+
 void sensorControlInit(void);
 
 
