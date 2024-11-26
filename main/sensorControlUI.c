@@ -68,6 +68,7 @@ static lv_obj_t *mbox1;
 static lv_timer_t *lv_timer;
 
 static uint8_t menu_index = 0;
+
 static struct timeval now;
 static struct tm *time_struct;
 static char now_time_buff[6];
@@ -124,6 +125,8 @@ void sensorControlInit(void)
     lv_style_set_bg_color(&style_button, lv_palette_main(LV_PALETTE_ORANGE));
     lv_style_set_outline_opa(&style_button, LV_OPA_TRANSP);
 
+    now.tv_sec = 1733504400;   //init time before adding RTC module
+    settimeofday(&now, NULL);
     lv_timer = lv_timer_create(get_time_cb, 10000, NULL);
     lv_timer_ready(lv_timer);
 
@@ -449,15 +452,33 @@ static void group_change(lv_group_t *new_group, uint32_t index)
 
 static void setting_apply(uint8_t menu_index)
 {
+    lv_timer_pause(lv_timer);
     switch(menu_index)
     {
         case MENU_SET_TIME:
             LV_LOG_USER("Change time applied");
+            uint8_t new_hour = (uint8_t) lv_roller_get_selected(lv_group_get_obj_by_index(group_menu[MENU_SET_TIME], 0));
+            uint8_t new_min = (uint8_t) lv_roller_get_selected(lv_group_get_obj_by_index(group_menu[MENU_SET_TIME], 1));
+            time_struct->tm_hour = new_hour;
+            time_struct->tm_min = new_min;
+            now.tv_sec = mktime(time_struct);
+            settimeofday(&now, NULL);
             break;
         case MENU_SET_DATE:
             LV_LOG_USER("Change date applied");
+            lv_obj_t *calendar = lv_obj_get_parent(lv_group_get_obj_by_index(group_menu[MENU_SET_DATE], 0));
+            lv_calendar_date_t today = {.day = 1, .month = 1, .year = 1900}; 
+            lv_calendar_get_pressed_date(calendar, &today);
+            time_struct->tm_year = today.year - 1900;
+            time_struct->tm_mon = today.month - 1;
+            time_struct->tm_mday = today.day;
+            now.tv_sec = mktime(time_struct);
+            settimeofday(&now, NULL);
+            lv_obj_send_event(calendar, LV_EVENT_REFRESH, NULL);
             break;
     }
+    lv_timer_resume(lv_timer);
+    lv_timer_ready(lv_timer);
 }
 
 //Event cb function
