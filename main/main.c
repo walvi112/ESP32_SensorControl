@@ -15,6 +15,7 @@
 #include "esp_lcd_touch_xpt2046.h"
 #include "sensorControlUI.h"
 #include "sensorControlDevice.h"
+#include "DHTSensor.h"
 
 const char *TAG = "SensorControl";
 
@@ -26,7 +27,18 @@ static bool lvgl_lock(int timeout_ms);
 static void lvgl_unlock();
 static void lvgl_port_task(void *arg);
 
+static void sensor_read_task(void *arg);
+
 static SemaphoreHandle_t lvgl_mux = NULL;
+
+gpio_config_t dht11Conf;
+
+DHT11Struct dht11 = {
+    .SensorConf = &dht11Conf,
+    .gpio_pin = DHT11_SENSOR_PIN,
+    .humidity = 0,
+    .temperature = 0,
+};
 
 #if LV_USE_LOG
 void my_log_cb(lv_log_level_t level, const char *buf)
@@ -167,13 +179,16 @@ void app_main(void)
     lvgl_mux = xSemaphoreCreateRecursiveMutex();
     assert(lvgl_mux);
     ESP_LOGI(TAG, "Create LVGL task");
-    xTaskCreate(lvgl_port_task, "LVGL", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL);
+    xTaskCreatePinnedToCore(lvgl_port_task, "LVGL", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL, 0);
 
     ESP_LOGI(TAG, "Display Sensor Control");
     if (lvgl_lock(-1)) {
         sensorControlInit();
         lvgl_unlock();
     }
+
+    DHT_Init(&dht11);
+    xTaskCreatePinnedToCore(sensor_read_task, "DHT11 Read", DHT11_TASK_STACK_SIZE, NULL, DHT11_TASK_PRIORITY, NULL, 0);
 
 }
 
@@ -257,3 +272,11 @@ static void lvgl_port_task(void *arg)
     }
 }
 
+static void sensor_read_task(void *arg)
+{
+    while(1)
+    {
+        vTaskDelay(pdMS_TO_TICKS(DHT11_READ_RATE_MS));
+        DHT_Read(&dht11);
+    }
+}

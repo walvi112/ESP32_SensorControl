@@ -32,9 +32,14 @@
 #define LVGL_TASK_MAX_DELAY_MS 500
 #define LVGL_TASK_MIN_DELAY_MS 1
 #define LVGL_TASK_STACK_SIZE   (8 * 1024)
-#define LVGL_TASK_PRIORITY     2
+#define LVGL_TASK_PRIORITY     3
 
 #define LVGL_ANIM_DELAY        200
+
+//Sensor config
+#define DHT11_TASK_STACK_SIZE   2048
+#define DHT11_TASK_PRIORITY     2
+#define DHT11_READ_RATE_MS      1000
 
 //Setting keypad pins
 #define PIN_PAD_UP      GPIO_NUM_32
@@ -43,6 +48,9 @@
 #define PIN_PAD_LEFT    GPIO_NUM_26
 #define PIN_PAD_ENTER   GPIO_NUM_27
 #define MAP_PAD         ((1ULL << PIN_PAD_UP) | (1ULL << PIN_PAD_RIGHT) | (1ULL << PIN_PAD_DOWN) | (1ULL << PIN_PAD_LEFT) | (1ULL << PIN_PAD_ENTER))
+
+//Sensor pins
+#define DHT11_SENSOR_PIN    GPIO_NUM_14
 
 //Setting Active indev
 #define USE_KEYPAD      1

@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include <sys/time.h>
 #include <time.h>
+#include "DHTSensor.h"
 
 #define MENU_CONTENTS    2
 
@@ -55,6 +56,9 @@ static lv_obj_t *screen1_time_label;
 static lv_obj_t *screen2_date_label;
 static lv_obj_t *screen2_time_label;
 
+static lv_obj_t *temperature_val_t;
+static lv_obj_t *humidity_val_t;
+
 static lv_group_t *group_prev;
 static lv_group_t *group_screen1;
 static lv_group_t *group_screen2;
@@ -65,7 +69,7 @@ static lv_group_t *group_menu[MENU_CONTENTS];
 static lv_obj_t *menu_root_page;
 static lv_obj_t *mbox1;
 
-static lv_timer_t *lv_timer;
+static lv_timer_t *lv_time_timer;
 
 static uint8_t menu_index = 0;
 
@@ -75,6 +79,8 @@ static char now_time_buff[6];
 static char now_date_buff[28];
 
 extern const char *TAG;
+
+extern DHT11Struct dht11;
 
 void sensorControlInit(void)
 {
@@ -127,8 +133,8 @@ void sensorControlInit(void)
 
     now.tv_sec = 1733504400;   //init time before adding RTC module
     settimeofday(&now, NULL);
-    lv_timer = lv_timer_create(get_time_cb, 10000, NULL);
-    lv_timer_ready(lv_timer);
+    lv_time_timer = lv_timer_create(get_time_cb, 1000, NULL);
+    lv_timer_ready(lv_time_timer);
 
     screen1_init();
     screen2_init();
@@ -327,13 +333,10 @@ static void temperature_create(lv_obj_t *parent, lv_group_t *group)
     lv_label_set_text(name, "Temperature");
     lv_obj_add_style(name, &style_title, 0);
 
-    uint32_t temperature_val = 5;
-    uint32_t humidity_val = 5;
-
-    lv_obj_t *temperature_val_t = lv_label_create(parent);
-    lv_label_set_text_fmt(temperature_val_t, "T = %"LV_PRIu32, temperature_val);
-    lv_obj_t *humidity_val_t = lv_label_create(parent);
-    lv_label_set_text_fmt(humidity_val_t, "H = %"LV_PRIu32, humidity_val);
+    temperature_val_t = lv_label_create(parent);
+    lv_label_set_text_fmt(temperature_val_t, "T = %"LV_PRIu32" C", (uint32_t) dht11.temperature);
+    humidity_val_t = lv_label_create(parent);
+    lv_label_set_text_fmt(humidity_val_t, "H = %"LV_PRIu32" %%", (uint32_t) dht11.humidity);
 
     lv_obj_t *btn1 = lv_button_create(parent);
     lv_group_add_obj(group, btn1);
@@ -452,11 +455,10 @@ static void group_change(lv_group_t *new_group, uint32_t index)
 
 static void setting_apply(uint8_t menu_index)
 {
-    lv_timer_pause(lv_timer);
+    lv_timer_pause(lv_time_timer);
     switch(menu_index)
     {
         case MENU_SET_TIME:
-            LV_LOG_USER("Change time applied");
             uint8_t new_hour = (uint8_t) lv_roller_get_selected(lv_group_get_obj_by_index(group_menu[MENU_SET_TIME], 0));
             uint8_t new_min = (uint8_t) lv_roller_get_selected(lv_group_get_obj_by_index(group_menu[MENU_SET_TIME], 1));
             time_struct->tm_hour = new_hour;
@@ -465,7 +467,6 @@ static void setting_apply(uint8_t menu_index)
             settimeofday(&now, NULL);
             break;
         case MENU_SET_DATE:
-            LV_LOG_USER("Change date applied");
             lv_obj_t *calendar = lv_obj_get_parent(lv_group_get_obj_by_index(group_menu[MENU_SET_DATE], 0));
             lv_calendar_date_t today = {.day = 1, .month = 1, .year = 1900}; 
             lv_calendar_get_pressed_date(calendar, &today);
@@ -477,8 +478,8 @@ static void setting_apply(uint8_t menu_index)
             lv_obj_send_event(calendar, LV_EVENT_REFRESH, NULL);
             break;
     }
-    lv_timer_resume(lv_timer);
-    lv_timer_ready(lv_timer);
+    lv_timer_resume(lv_time_timer);
+    lv_timer_ready(lv_time_timer);
 }
 
 //Event cb function
@@ -512,6 +513,8 @@ static void screen1_event(lv_event_t *e)
         case LV_EVENT_REFRESH:
             lv_label_set_text_static(screen1_date_label, now_date_buff);
             lv_label_set_text_static(screen1_time_label, now_time_buff);
+            lv_label_set_text_fmt(temperature_val_t, "T = %"LV_PRIu32" C", (uint32_t) dht11.temperature);
+            lv_label_set_text_fmt(humidity_val_t, "H = %"LV_PRIu32" %%", (uint32_t) dht11.humidity);
             break;
         default:
             break;
@@ -600,7 +603,7 @@ static void imu_button_pressed(lv_event_t *e)
 
 static void temperature_button_pressed(lv_event_t *e)
 {
-    ESP_LOGI(TAG, "Temperature button pressed");
+    lv_obj_send_event(lv_screen_active(), LV_EVENT_REFRESH, NULL);
 }
 
 static void roller_event(lv_event_t *e)
