@@ -320,9 +320,9 @@ static void imu_create(lv_obj_t *parent, lv_group_t *group)
 
     lv_obj_set_grid_dsc_array(parent, main_column_dsc, main_row_dsc);
     lv_obj_set_grid_cell(name, LV_GRID_ALIGN_CENTER, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
-    lv_obj_set_grid_cell(x_val_t, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-    lv_obj_set_grid_cell(y_val_t, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_CENTER, 2, 1);
-    lv_obj_set_grid_cell(z_val_t, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_CENTER, 3, 1);
+    lv_obj_set_grid_cell(x_val_t, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 1, 1);
+    lv_obj_set_grid_cell(y_val_t, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 2, 1);
+    lv_obj_set_grid_cell(z_val_t, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 3, 1);
     lv_obj_set_grid_cell(btn1, LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 1, 3);
 
 }
@@ -351,15 +351,15 @@ static void temperature_create(lv_obj_t *parent, lv_group_t *group)
     static int32_t main_column_dsc[] = {LV_GRID_CONTENT, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
     static int32_t main_row_dsc[] = {
             LV_GRID_CONTENT,  /*Name*/
-            LV_GRID_CONTENT,  /*X*/
-            LV_GRID_CONTENT,  /*Y*/
+            LV_GRID_CONTENT,  /*T*/
+            LV_GRID_CONTENT,  /*H*/
             LV_GRID_TEMPLATE_LAST
     };
 
     lv_obj_set_grid_dsc_array(parent, main_column_dsc, main_row_dsc);
     lv_obj_set_grid_cell(name, LV_GRID_ALIGN_CENTER, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
-    lv_obj_set_grid_cell(temperature_val_t, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
-    lv_obj_set_grid_cell(humidity_val_t, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+    lv_obj_set_grid_cell(temperature_val_t, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 1, 1);
+    lv_obj_set_grid_cell(humidity_val_t, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 2, 1);
     lv_obj_set_grid_cell(btn1, LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 1, 2);
 
 }
