@@ -136,7 +136,7 @@ void sensorControlInit(void)
     lv_style_set_bg_color(&style_button, lv_palette_main(LV_PALETTE_ORANGE));
     lv_style_set_outline_opa(&style_button, LV_OPA_TRANSP);
 
-    now.tv_sec = 1733504400;   //init time before adding RTC module
+    now.tv_sec = 1733555227;   //init time before adding RTC module
     settimeofday(&now, NULL);
     lv_time_timer = lv_timer_create(get_time_cb, 1000, NULL);
     lv_timer_ready(lv_time_timer);
