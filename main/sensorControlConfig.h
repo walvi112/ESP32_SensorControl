@@ -32,14 +32,17 @@
 #define LVGL_TASK_MAX_DELAY_MS 500
 #define LVGL_TASK_MIN_DELAY_MS 1
 #define LVGL_TASK_STACK_SIZE   (8 * 1024)
-#define LVGL_TASK_PRIORITY     3
+#define LVGL_TASK_PRIORITY     2
 
 #define LVGL_ANIM_DELAY        200
 
 //Sensor config
 #define DHT11_TASK_STACK_SIZE   2048
-#define DHT11_TASK_PRIORITY     2
+#define MMA8451_TASK_STACK_SIZE 2048
+#define DHT11_TASK_PRIORITY       1
+#define MMA8451_TASK_PRIORITY     1
 #define DHT11_READ_RATE_MS      1000
+#define MMA8451_I2C_PORT          0
 
 //Setting keypad pins
 #define PIN_PAD_UP      GPIO_NUM_32
@@ -51,6 +54,8 @@
 
 //Sensor pins
 #define DHT11_SENSOR_PIN    GPIO_NUM_14
+#define MMA8451_SDA_PIN     GPIO_NUM_16
+#define MMA8451_SCL_PIN     GPIO_NUM_17
 
 //Setting Active indev
 #define USE_KEYPAD      1

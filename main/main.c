@@ -16,6 +16,7 @@
 #include "sensorControlUI.h"
 #include "sensorControlDevice.h"
 #include "DHTSensor.h"
+#include "MMA8451.h"
 
 const char *TAG = "SensorControl";
 
@@ -27,18 +28,16 @@ static bool lvgl_lock(int timeout_ms);
 static void lvgl_unlock();
 static void lvgl_port_task(void *arg);
 
-static void sensor_read_task(void *arg);
+static void dht11_read_task(void *arg);
+static void mma8451_read_task(void *arg);
 
 static SemaphoreHandle_t lvgl_mux = NULL;
+static SemaphoreHandle_t i2c_mux = NULL;
 
 gpio_config_t dht11Conf;
 
-DHT11Struct dht11 = {
-    .SensorConf = &dht11Conf,
-    .gpio_pin = DHT11_SENSOR_PIN,
-    .humidity = 0,
-    .temperature = 0,
-};
+MMA8451 mma8451;
+DHT11Struct dht11;
 
 #if LV_USE_LOG
 void my_log_cb(lv_log_level_t level, const char *buf)
@@ -92,11 +91,8 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_lcd_new_panel_ili9341(io_handle, &panel_config, &panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
-
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle, true, false));
-
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
-
 
     ESP_LOGI(TAG, "Turn on LCD backlight");
     gpio_set_level(PIN_NUM_BK_LIGHT, LCD_BK_LIGHT_ON_LEVEL);
@@ -176,10 +172,41 @@ void app_main(void)
     lv_indev_set_read_cb(touch_screen, lvgl_touch_cb);
     #endif
 
+    ESP_LOGI(TAG, "Init MMA8451 I2C master device");
+    i2c_master_bus_config_t i2c_mst_config = {
+    .clk_source = I2C_CLK_SRC_DEFAULT,
+    .i2c_port = MMA8451_I2C_PORT,
+    .scl_io_num = MMA8451_SCL_PIN,
+    .sda_io_num = MMA8451_SDA_PIN,
+    .glitch_ignore_cnt = 7,
+    .flags.enable_internal_pullup = true,
+    };
+    i2c_master_bus_handle_t bus_handle;
+    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_mst_config, &bus_handle));
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = MMA8451_DEFAULT_ADDRESS,
+        .scl_speed_hz = 100000,
+    };
+    i2c_master_dev_handle_t dev_handle;
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_handle));
+
+    ESP_LOGI(TAG, "Create LVGL task");
     lvgl_mux = xSemaphoreCreateRecursiveMutex();
     assert(lvgl_mux);
-    ESP_LOGI(TAG, "Create LVGL task");
     xTaskCreatePinnedToCore(lvgl_port_task, "LVGL", LVGL_TASK_STACK_SIZE, NULL, LVGL_TASK_PRIORITY, NULL, 0);
+
+    ESP_LOGI(TAG, "Create DHT11 temperature sensor task");
+    DHT_Init(&dht11, &dht11Conf, DHT11_SENSOR_PIN);
+    xTaskCreatePinnedToCore(dht11_read_task, "DHT11 Read", DHT11_TASK_STACK_SIZE, NULL, DHT11_TASK_PRIORITY, NULL, 0);
+
+    ESP_LOGI(TAG, "Create MMA8451 accelerometer task");
+    i2c_mux = xSemaphoreCreateMutex();
+    assert(i2c_mux);
+    ESP_ERROR_CHECK(MMA8451_Init(&mma8451, dev_handle, MMA8451_DEFAULT_ADDRESS));
+    MMA8451_setRange(&mma8451, MMA8451_RANGE_2_G);
+    xTaskCreatePinnedToCore(mma8451_read_task, "MMA8451 Read", MMA8451_TASK_STACK_SIZE, NULL, MMA8451_TASK_PRIORITY, NULL, 0);
+
 
     ESP_LOGI(TAG, "Display Sensor Control");
     if (lvgl_lock(-1)) {
@@ -187,8 +214,6 @@ void app_main(void)
         lvgl_unlock();
     }
 
-    DHT_Init(&dht11);
-    xTaskCreatePinnedToCore(sensor_read_task, "DHT11 Read", DHT11_TASK_STACK_SIZE, NULL, DHT11_TASK_PRIORITY, NULL, 0);
 
 }
 
@@ -272,11 +297,25 @@ static void lvgl_port_task(void *arg)
     }
 }
 
-static void sensor_read_task(void *arg)
+//RTOS tasks
+static void dht11_read_task(void *arg)
 {
     while(1)
     {
         vTaskDelay(pdMS_TO_TICKS(DHT11_READ_RATE_MS));
         DHT_Read(&dht11);
+    }
+}
+
+static void mma8451_read_task(void *arg)
+{
+    while(1)
+    {
+        if(xSemaphoreTake(i2c_mux, portMAX_DELAY))
+        {
+            MMA8451_read(&mma8451);
+            xSemaphoreGive(i2c_mux);
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include "DHTSensor.h"
+#include "MMA8451.h"
 
 #define MENU_CONTENTS    2
 
@@ -13,7 +14,7 @@ static void screen2_init(void);
 static void screen3_init(void);
 
 static void screen1_event(lv_event_t *e);
-static void imu_button_pressed(lv_event_t *e);
+static void accelerometer_button_pressed(lv_event_t *e);
 static void temperature_button_pressed(lv_event_t *e);
 static void screen2_event(lv_event_t *e);
 static void screen3_event(lv_event_t *e);
@@ -24,7 +25,7 @@ static void setting_event(lv_event_t *e);
 
 static void get_time_cb(lv_timer_t *timer);
 
-static void imu_create(lv_obj_t *parent, lv_group_t *group);
+static void accelerometer_create(lv_obj_t *parent, lv_group_t *group);
 static void temperature_create(lv_obj_t *parent, lv_group_t *group);
 static lv_obj_t *calendar_create(lv_obj_t *parent, lv_group_t *group);
 static lv_obj_t *time_set_create(lv_obj_t *parent, lv_group_t *group);
@@ -58,6 +59,9 @@ static lv_obj_t *screen2_time_label;
 
 static lv_obj_t *temperature_val_t;
 static lv_obj_t *humidity_val_t;
+static lv_obj_t *accelerometer_x_val_t;
+static lv_obj_t *accelerometer_y_val_t;
+static lv_obj_t *accelerometer_z_val_t;
 
 static lv_group_t *group_prev;
 static lv_group_t *group_screen1;
@@ -81,6 +85,7 @@ static char now_date_buff[28];
 extern const char *TAG;
 
 extern DHT11Struct dht11;
+extern MMA8451 mma8451;
 
 void sensorControlInit(void)
 {
@@ -88,8 +93,8 @@ void sensorControlInit(void)
     font_normal = LV_FONT_DEFAULT;
     font_clock = LV_FONT_DEFAULT;
 
-    #if LV_FONT_MONTSERRAT_14
-        font_large = &lv_font_montserrat_14;
+    #if LV_FONT_MONTSERRAT_20
+        font_large = &lv_font_montserrat_20;
     #endif
     #if LV_FONT_MONTSERRAT_12
         font_normal = &lv_font_montserrat_12;
@@ -182,10 +187,10 @@ static void screen1_init(void)
     lv_obj_set_grid_cell(screen1_time_label, LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 1, 1);
     lv_obj_set_grid_cell(sensor_cont, LV_GRID_ALIGN_STRETCH, 0, 3, LV_GRID_ALIGN_STRETCH, 3, 1);
 
-    lv_obj_t *imu_cont = lv_obj_create(sensor_cont);
-    lv_obj_add_style(imu_cont, &style_sensor_cont, 0);
-    imu_create(imu_cont, group_screen1);
-    lv_obj_set_size(imu_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_t *accelerometer_cont = lv_obj_create(sensor_cont);
+    lv_obj_add_style(accelerometer_cont, &style_sensor_cont, 0);
+    accelerometer_create(accelerometer_cont, group_screen1);
+    lv_obj_set_size(accelerometer_cont, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
     lv_obj_t *temperature_cont = lv_obj_create(sensor_cont);
     lv_obj_add_style(temperature_cont, &style_sensor_cont, 0);
@@ -282,34 +287,29 @@ static void screen3_init(void)
 
 //Widget create functions
 
-static void imu_create(lv_obj_t *parent, lv_group_t *group)
+static void accelerometer_create(lv_obj_t *parent, lv_group_t *group)
 {
     lv_obj_t *name = lv_label_create(parent);
-    lv_label_set_text(name, "IMU");
-    lv_obj_add_style(name, &style_title, 0);
+    lv_label_set_text(name, "Accelerometer");
 
-    uint32_t x_val = 5;
-    uint32_t y_val = 5;
-    uint32_t z_val = 5;
-
-    lv_obj_t *x_val_t = lv_label_create(parent);
-    lv_label_set_text_fmt(x_val_t, "X = %"LV_PRIu32, x_val);
-    lv_obj_t *y_val_t = lv_label_create(parent);
-    lv_label_set_text_fmt(y_val_t, "Y = %"LV_PRIu32, y_val);
-    lv_obj_t *z_val_t = lv_label_create(parent);
-    lv_label_set_text_fmt(z_val_t, "Z = %"LV_PRIu32, z_val);
+    accelerometer_x_val_t= lv_label_create(parent);
+    lv_label_set_text_fmt(accelerometer_x_val_t, "X = %.1f", mma8451._xg * SENSORS_GRAVITY_STANDARD);
+    accelerometer_y_val_t = lv_label_create(parent);
+    lv_label_set_text_fmt(accelerometer_y_val_t, "Y = %.1f", mma8451._yg * SENSORS_GRAVITY_STANDARD);
+    accelerometer_z_val_t = lv_label_create(parent);
+    lv_label_set_text_fmt(accelerometer_z_val_t, "Z = %.1f", mma8451._zg * SENSORS_GRAVITY_STANDARD);
 
     lv_obj_t *btn1 = lv_button_create(parent);
     lv_group_add_obj(group, btn1);
     lv_obj_add_style(btn1, &style_button, LV_STATE_FOCUS_KEY);
     lv_obj_add_event_cb(btn1, screen1_event, LV_EVENT_KEY, NULL);
-    lv_obj_add_event_cb(btn1, imu_button_pressed, LV_EVENT_PRESSED, NULL);
+    lv_obj_add_event_cb(btn1, accelerometer_button_pressed, LV_EVENT_PRESSED, NULL);
     lv_obj_remove_flag(btn1, LV_OBJ_FLAG_PRESS_LOCK);
     lv_obj_t *label = lv_label_create(btn1);
     lv_label_set_text(label, "Reset");
     lv_obj_center(label);
 
-    static int32_t main_column_dsc[] = {LV_GRID_CONTENT, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
+    static int32_t main_column_dsc[] = {50, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
     static int32_t main_row_dsc[] = {
             LV_GRID_CONTENT,  /*Name*/
             LV_GRID_CONTENT,  /*X*/
@@ -317,12 +317,12 @@ static void imu_create(lv_obj_t *parent, lv_group_t *group)
             LV_GRID_CONTENT,  /*Z*/
             LV_GRID_TEMPLATE_LAST
     };
-
+    
     lv_obj_set_grid_dsc_array(parent, main_column_dsc, main_row_dsc);
     lv_obj_set_grid_cell(name, LV_GRID_ALIGN_CENTER, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
-    lv_obj_set_grid_cell(x_val_t, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 1, 1);
-    lv_obj_set_grid_cell(y_val_t, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 2, 1);
-    lv_obj_set_grid_cell(z_val_t, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 3, 1);
+    lv_obj_set_grid_cell(accelerometer_x_val_t, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
+    lv_obj_set_grid_cell(accelerometer_y_val_t, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_CENTER, 2, 1);
+    lv_obj_set_grid_cell(accelerometer_z_val_t, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_CENTER, 3, 1);
     lv_obj_set_grid_cell(btn1, LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 1, 3);
 
 }
@@ -331,7 +331,6 @@ static void temperature_create(lv_obj_t *parent, lv_group_t *group)
 {
     lv_obj_t *name = lv_label_create(parent);
     lv_label_set_text(name, "Temperature");
-    lv_obj_add_style(name, &style_title, 0);
 
     temperature_val_t = lv_label_create(parent);
     lv_label_set_text_fmt(temperature_val_t, "T = %"LV_PRIu32" C", (uint32_t) dht11.temperature);
@@ -348,7 +347,7 @@ static void temperature_create(lv_obj_t *parent, lv_group_t *group)
     lv_label_set_text(label, "Reset");
     lv_obj_center(label);
 
-    static int32_t main_column_dsc[] = {LV_GRID_CONTENT, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
+    static int32_t main_column_dsc[] = {50, LV_GRID_CONTENT, LV_GRID_TEMPLATE_LAST};
     static int32_t main_row_dsc[] = {
             LV_GRID_CONTENT,  /*Name*/
             LV_GRID_CONTENT,  /*T*/
@@ -358,8 +357,8 @@ static void temperature_create(lv_obj_t *parent, lv_group_t *group)
 
     lv_obj_set_grid_dsc_array(parent, main_column_dsc, main_row_dsc);
     lv_obj_set_grid_cell(name, LV_GRID_ALIGN_CENTER, 0, 2, LV_GRID_ALIGN_CENTER, 0, 1);
-    lv_obj_set_grid_cell(temperature_val_t, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 1, 1);
-    lv_obj_set_grid_cell(humidity_val_t, LV_GRID_ALIGN_CENTER, 0, 1, LV_GRID_ALIGN_START, 2, 1);
+    lv_obj_set_grid_cell(temperature_val_t, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_CENTER, 1, 1);
+    lv_obj_set_grid_cell(humidity_val_t, LV_GRID_ALIGN_START, 0, 1, LV_GRID_ALIGN_CENTER, 2, 1);
     lv_obj_set_grid_cell(btn1, LV_GRID_ALIGN_CENTER, 1, 1, LV_GRID_ALIGN_CENTER, 1, 2);
 
 }
@@ -515,6 +514,9 @@ static void screen1_event(lv_event_t *e)
             lv_label_set_text_static(screen1_time_label, now_time_buff);
             lv_label_set_text_fmt(temperature_val_t, "T = %"LV_PRIu32" C", (uint32_t) dht11.temperature);
             lv_label_set_text_fmt(humidity_val_t, "H = %"LV_PRIu32" %%", (uint32_t) dht11.humidity);
+            lv_label_set_text_fmt(accelerometer_x_val_t, "X = %.1f", mma8451._xg * SENSORS_GRAVITY_STANDARD);
+            lv_label_set_text_fmt(accelerometer_y_val_t, "Y = %.1f", mma8451._yg * SENSORS_GRAVITY_STANDARD);
+            lv_label_set_text_fmt(accelerometer_z_val_t, "Z = %.1f", mma8451._zg * SENSORS_GRAVITY_STANDARD);
             break;
         default:
             break;
@@ -596,9 +598,9 @@ static void menu_back_event(lv_event_t *e)
     lv_screen_load_anim(screen2, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, LVGL_ANIM_DELAY, 0, false);
 }
 
-static void imu_button_pressed(lv_event_t *e)
+static void accelerometer_button_pressed(lv_event_t *e)
 {
-    ESP_LOGI(TAG, "IMU button pressed");
+    lv_obj_send_event(lv_screen_active(), LV_EVENT_REFRESH, NULL);
 }
 
 static void temperature_button_pressed(lv_event_t *e)
@@ -702,6 +704,6 @@ static void get_time_cb(lv_timer_t *timer)
     gettimeofday(&now, NULL);
     time_struct = gmtime(&now.tv_sec);
     strftime(now_time_buff, 6, "%R", time_struct);
-    strftime(now_date_buff, 28, "%A %B %e %G", time_struct);
+    strftime(now_date_buff, 28, "%A, %B %e %G", time_struct);
     lv_obj_send_event(lv_screen_active(), LV_EVENT_REFRESH, NULL);
 }

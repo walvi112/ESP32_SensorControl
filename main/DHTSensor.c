@@ -26,8 +26,12 @@ static bool waitState(DHT11Struct *dht11, uint8_t state, uint32_t delayUs)
     return true;
 }
 
-void DHT_Init(DHT11Struct *dht11)
+void DHT_Init(DHT11Struct *dht11, gpio_config_t *sensorConf, uint8_t sensor_pin)
 {
+    dht11->gpio_pin = sensor_pin;
+    dht11->humidity = 0;
+    dht11->temperature = 0;
+    dht11->SensorConf = sensorConf;
     dht11->SensorConf->pin_bit_mask = (1ULL << (dht11->gpio_pin)),
     dht11->SensorConf->mode = GPIO_MODE_OUTPUT_OD;
     dht11->SensorConf->pull_down_en = GPIO_PULLDOWN_DISABLE;

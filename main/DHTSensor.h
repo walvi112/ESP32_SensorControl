@@ -15,7 +15,7 @@ typedef struct DHT11Struct
     float temperature;
 }DHT11Struct;
 
-void DHT_Init(DHT11Struct *dht11);
+void DHT_Init(DHT11Struct *dht11, gpio_config_t *sensorConf, uint8_t sensor_pin);
 bool DHT_Read(DHT11Struct *dht11);
 
 #ifdef __cplusplus
